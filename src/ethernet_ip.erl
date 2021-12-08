@@ -67,10 +67,22 @@ stop(PID) ->
 %%==============================================================================
 %%	Protocol API
 %%==============================================================================
-create_tag(PID, ConnectionStr) ->
-  create_tag(PID, ConnectionStr, ?RESPONSE_TIMEOUT).
-create_tag(PID, ConnectionStr, Timeout) ->
-  transaction(PID, <<"creete">>,ConnectionStr, Timeout).
+create_tag(PID, Params) ->
+  create_tag(PID, Params, ?RESPONSE_TIMEOUT).
+create_tag(PID, #{<<"name">>:=_Name, <<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC} = Params, Timeout) ->
+  ConnectionStr =
+    maps:fold(
+      fun(Key, Value, ConnStr) ->
+        KeyValue = <<Key/binary, "=", Value/binary>>,
+        case ConnStr of
+          <<>> -> KeyValue;
+          ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
+        end
+      end, <<>>, Params),
+  transaction(PID, <<"create">>,ConnectionStr, Timeout);
+create_tag(_PID, WrongParams, _Timeout) ->
+  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
+  {error, {wrong_params, WrongParams}}.
 
 destroy_tag(PID, TagID) ->
   destroy_tag(PID, TagID, ?RESPONSE_TIMEOUT).
@@ -79,13 +91,19 @@ destroy_tag(PID, TagID, Timeout) ->
 
 read(PID, Params) ->
   read(PID, Params, ?RESPONSE_TIMEOUT).
-read(PID, Params, Timeout) ->
-  transaction(PID, <<"read">>, Params, Timeout).
+read(PID, #{<<"tag_id">>:=_TagID, <<"type">>:=_Type, <<"offset">>:=_Offset}=Params, Timeout) ->
+  transaction(PID, <<"read">>, Params, Timeout);
+read(_PID, WrongParams, _Timeout) ->
+  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
+  {error, {wrong_params, WrongParams}}.
 
 write(PID, Params) ->
   write(PID, Params, ?RESPONSE_TIMEOUT).
-write(PID, Params, Timeout) ->
-  transaction(PID, <<"write">>, Params, Timeout).
+write(PID, #{<<"tag_id">>:=_TagID, <<"type">>:=_Type, <<"offset">>:=_Offset, <<"value">>:_Value}=Params, Timeout) ->
+  transaction(PID, <<"write">>, Params, Timeout);
+write(_PID, WrongParams, _Timeout) ->
+  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
+  {error, {wrong_params, WrongParams}}.
 
 transaction( PID, Command, Body, Timeout )->
   TID = rand:uniform(16#FFFF),
