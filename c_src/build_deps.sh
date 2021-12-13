@@ -26,6 +26,7 @@ fi
 case "$1" in
     clean)
         rm -rf cJSON
+        rm -rf libplctag
         ;;
 
     build)
@@ -40,6 +41,17 @@ case "$1" in
         cd build
         cmake cmake .. -DENABLE_CJSON_UTILS=On -DENABLE_CJSON_TEST=Off -DCMAKE_INSTALL_PREFIX=_install -DBUILD_SHARED_LIBS=Off
         make && make install
+
+        #libplctag
+        cd $BASEDIR
+        if [ ! -d libplctag ]; then
+            git clone --depth 1 -b release https://github.com/libplctag/libplctag.git
+        fi
+        cd libplctag
+        mkdir -p build
+        cd build
+        cmake cmake .. -DCMAKE_BUILD_TYPE=Release
+        make
 
         ;;
 esac
