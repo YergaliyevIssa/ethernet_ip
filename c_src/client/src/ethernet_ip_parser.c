@@ -88,8 +88,101 @@ error:
 }
 
 
+// Clean the memory used for the request structure
+void purge_request( OPCUA_CLIENT_REQUEST* request ){
+    cJSON_Delete( request->body );
+}
+
+// Build the response
+char* create_response( OPCUA_CLIENT_REQUEST *request, cJSON *responseBody ){
+    cJSON *response = cJSON_CreateObject();
+    char *responseString = NULL;
+
+    // Inherit command type from the request
+    char *cmd = cmd2string( request->cmd );
+    if (cmd == NULL){
+        goto error;
+    }
+    if ( cJSON_AddStringToObject(response, "cmd", cmd) == NULL) {
+        goto error;
+    }
+
+    // Inherit transaction id from the request
+    if ( cJSON_AddNumberToObject(response, "tid", request->tid) == NULL) {
+        goto error;
+    } 
+
+    // Add the response body
+    if ( !cJSON_AddItemToObject(response, "reply", responseBody) ) {
+        goto error;
+    }
+    responseString = cJSON_PrintUnformatted( response );
+    if (responseString == NULL)
+    {
+        LOGERROR("ERROR: unable to print response.\r\n");
+        goto error;
+    }
+
+    cJSON_Delete( response );
+    return responseString;
+
+error:
+    cJSON_Delete( responseBody );
+    cJSON_Delete( response );
+    return "{\"type\":\"error\",\"text\":\"unable to construct the response\"}";
+}
+
+
+
 int parse_create_request(cJSON* body){
-    
+
+    if (!cJSON_IsString(body)) {
+        return -1;
+    }
     return 0;
 }
 
+int parse_destroy_request(cJSON* body) {
+    if (!cJSON_IsNumber(body)) {
+        return -1;
+    }
+    return 0;
+}
+
+int parse_read_request(cJSON* body) {
+    return 0;
+}
+
+int parse_write_request(cJSON* body) {
+    return 0;
+}
+
+
+//------------------Internal helpers--------------------------------------------
+OPCUA_CLIENT_CMD string2cmd(char *cmd){
+    if ( strcmp(cmd, "create") == 0 ){
+        return CREATE_TAG;
+    }else if( strcmp(cmd, "destroy") == 0){
+        return DESTROY_TAG;
+    }else if( strcmp(cmd, "read") == 0){
+        return READ_DATA;
+    }else if( strcmp(cmd, "write") == 0){
+        return WRITE_DATA;
+    }else{
+        return -1; 
+    }
+}
+
+char* cmd2string(OPCUA_CLIENT_CMD cmd){
+    if ( cmd == CREATE_TAG ){
+        return "create";
+    }else if( cmd == DESTROY_TAG){
+        return "destroy";
+    }else if( cmd == READ_DATA){
+        return "raed";
+    }else if( cmd == WRITE_DATA ){
+        return "write";
+    }else{
+        return NULL; 
+    }
+}

@@ -142,6 +142,7 @@ cJSON* ethernet_ip_write(cJSON* request) {
     cJSON* Type = cJSON_GetObjectItemCaseSensitive(request,"type");
     cJSON* Offset = cJSON_GetObjectItemCaseSensitive(request, "offset");
     cJSON* Value = cJSON_GetObjectItemCaseSensitive(request, "value");
+    cJSON* response = NULL;
 
     int32_t tag_id = (int32_t)(TagId -> valuedouble);
     char* type = Type -> valuestring;
@@ -183,7 +184,7 @@ cJSON* ethernet_ip_write(cJSON* request) {
         return response;
     }
 
-    return
+    return on_ok(response);
 }
 
 
