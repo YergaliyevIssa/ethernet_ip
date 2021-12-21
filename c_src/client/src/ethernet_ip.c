@@ -81,13 +81,13 @@ error:
 cJSON* ethernet_ip_create_tag(cJSON* request) {
     char* connection_path = request -> valuestring;
     int32_t tag_id = plc_tag_create(connection_path, 5000);
-    return cJSON_CreateNumber(tag_id);
+    return on_ok(cJSON_CreateNumber(tag_id));
 }
 
 
 cJSON* ethernet_ip_destroy_tag(cJSON* request) {
     plc_tag_destroy((int32_t)(request -> valuedouble));
-    return NULL;
+    return on_ok(NULL);
 }
 
 cJSON* ethernet_ip_read(cJSON* request) {
