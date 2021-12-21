@@ -10,6 +10,9 @@ int parse_read_request( cJSON* body );
 int parse_write_request( cJSON* body );
 int parse_destroy_request( cJSON* body);
 
+ETHERNET_IP_CMD string2cmd(char *cmd);
+char* cmd2string(ETHERNET_IP_CMD cmd);
+
 
 int parse_request( const char *message, ETHERNET_IP_CLIENT_REQUEST* request ){
 
@@ -89,12 +92,12 @@ error:
 
 
 // Clean the memory used for the request structure
-void purge_request( OPCUA_CLIENT_REQUEST* request ){
+void purge_request( ETHERNET_IP_CLIENT_REQUEST* request ){
     cJSON_Delete( request->body );
 }
 
 // Build the response
-char* create_response( OPCUA_CLIENT_REQUEST *request, cJSON *responseBody ){
+char* create_response( ETHERNET_IP_CLIENT_REQUEST *request, cJSON *responseBody ){
     cJSON *response = cJSON_CreateObject();
     char *responseString = NULL;
 
@@ -159,7 +162,7 @@ int parse_write_request(cJSON* body) {
 
 
 //------------------Internal helpers--------------------------------------------
-OPCUA_CLIENT_CMD string2cmd(char *cmd){
+ETHERNET_IP_CMD string2cmd(char *cmd){
     if ( strcmp(cmd, "create") == 0 ){
         return CREATE_TAG;
     }else if( strcmp(cmd, "destroy") == 0){
@@ -173,7 +176,7 @@ OPCUA_CLIENT_CMD string2cmd(char *cmd){
     }
 }
 
-char* cmd2string(OPCUA_CLIENT_CMD cmd){
+char* cmd2string(ETHERNET_IP_CMD cmd){
     if ( cmd == CREATE_TAG ){
         return "create";
     }else if( cmd == DESTROY_TAG){

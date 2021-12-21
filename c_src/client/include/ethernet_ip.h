@@ -15,6 +15,7 @@
 * under the License.
 ----------------------------------------------------------------*/
 #include <cjson/cJSON.h>
+#include <libplctag.h>
 
 typedef unsigned long TID;
 

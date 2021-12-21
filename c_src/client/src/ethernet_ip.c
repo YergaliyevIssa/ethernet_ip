@@ -79,7 +79,6 @@ error:
 
 
 cJSON* ethernet_ip_create_tag(cJSON* request) {
-    cJSON* response;
     char* connection_path = request -> valuestring;
     int32_t tag_id = plc_tag_create(connection_path, 5000);
     return cJSON_CreateNumber(tag_id);

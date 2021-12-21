@@ -14,6 +14,9 @@ CJSON_INCLUDE_DIR ?= $(CURDIR)/cJSON/build/_install/include
 CJSON_LIB64_DIR ?= $(CURDIR)/cJSON/build/_install/lib64
 CJSON_LIB_DIR ?= $(CURDIR)/cJSON/build/_install/lib
 
+LIBPLC_INCLUDE_DIR ?= $(CURDIR)/libplctag/build/_install/include
+LIBPLC_LIB_DIR ?= $(CURDIR)/libplctag/build/_install/lib
+
 EPORT_INCLUDE_DIR ?= $(CURDIR)/eport/include
 CLIENT_INCLUDE_DIR ?= $(CURDIR)/client/include
 
@@ -38,10 +41,10 @@ else ifeq ($(UNAME_SYS), Linux)
 	CXXFLAGS ?= -O3 -finline-functions -Wall
 endif
 
-CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR) -I $(OPEN62541_INCLUDE_DIR) -I $(CJSON_INCLUDE_DIR) -I $(UTHASH_INCLUDE_DIR) -I $(EPORT_INCLUDE_DIR) -I $(CLIENT_INCLUDE_DIR)
-CXXFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR) -I $(OPEN62541_INCLUDE_DIR) -I $(CJSON_INCLUDE_DIR) -I $(UTHASH_INCLUDE_DIR) -I $(EPORT_INCLUDE_DIR) -I $(CLIENT_INCLUDE_DIR)
+CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR) -I $(CJSON_INCLUDE_DIR) -I $(EPORT_INCLUDE_DIR) -I $(CLIENT_INCLUDE_DIR) -I $(LIBPLC_INCLUDE_DIR)
+CXXFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR) -I $(CJSON_INCLUDE_DIR) -I $(EPORT_INCLUDE_DIR) -I $(CLIENT_INCLUDE_DIR) -I $(LIBPLC_INCLUDE_DIR)
 
-LDLIBS += -lssl -lcrypto -L $(ERL_INTERFACE_LIB_DIR) -lerl_interface -lei -L $(OPEN62541_LIB_DIR) -L $(OPEN62541_LIB64_DIR) -lopen62541 -L $(CJSON_LIB_DIR) -L $(CJSON_LIB64_DIR) -lcjson -lcjson_utils
+LDLIBS += -lssl -lcrypto -L $(ERL_INTERFACE_LIB_DIR) -lerl_interface -lei  -L $(CJSON_LIB_DIR) -L $(CJSON_LIB64_DIR) -lcjson -lcjson_utils -L $(LIBPLC_LIB_DIR) -lplctag
 
 # Verbosity.
 
@@ -54,7 +57,7 @@ cpp_verbose = $(cpp_verbose_$(V))
 link_verbose_0 = @echo " LD    " $(@F);
 link_verbose = $(link_verbose_$(V))
 
-SOURCES := $(shell find $(C_SRC_DIR) -type d \( -o -name "cJSON" \) -prune -false -o -type f \( -name "*.c" -o -name "*.C" -o -name "*.cc" -o -name "*.cpp" \))
+SOURCES := $(shell find $(C_SRC_DIR) -type d \( -name "cJSON" -o -name "libplctag" \) -prune -false -o -type f \( -name "*.c" -o -name "*.C" -o -name "*.cc" -o -name "*.cpp" \))
 OBJECTS = $(addsuffix .o, $(basename $(SOURCES)))
 
 COMPILE_C = $(c_verbose) $(CC) $(CFLAGS) $(CPPFLAGS) -c

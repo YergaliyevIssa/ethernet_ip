@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "ethernet_ip.h": "c"
+        "ethernet_ip.h": "c",
+        "eport.h": "c"
     }
 }

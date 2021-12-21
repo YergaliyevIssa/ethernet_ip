@@ -45,13 +45,13 @@ case "$1" in
         #libplctag
         cd $BASEDIR
         if [ ! -d libplctag ]; then
-            git clone --depth 1 -b release https://github.com/libplctag/libplctag.git
+            git clone https://github.com/libplctag/libplctag.git
         fi
         cd libplctag
         mkdir -p build
         cd build
-        cmake cmake .. -DCMAKE_BUILD_TYPE=Release
-        make
+        cmake cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=_install -DBUILD_SHARED_LIBS=Off
+        make && make install
 
         ;;
 esac
