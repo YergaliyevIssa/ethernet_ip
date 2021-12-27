@@ -99,7 +99,7 @@ read(_PID, WrongParams, _Timeout) ->
 
 write(PID, Params) ->
   write(PID, Params, ?RESPONSE_TIMEOUT).
-write(PID, #{<<"tag_id">>:=_TagID, <<"type">>:=_Type, <<"offset">>:=_Offset, <<"value">>:_Value}=Params, Timeout) ->
+write(PID, #{<<"tag_id">>:=_TagID, <<"type">>:=_Type, <<"offset">>:=_Offset, <<"value">>:=_Value}=Params, Timeout) ->
   transaction(PID, <<"write">>, Params, Timeout);
 write(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
