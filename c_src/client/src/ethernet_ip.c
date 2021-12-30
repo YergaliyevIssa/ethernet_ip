@@ -10,7 +10,7 @@ cJSON* ethernet_ip_read(cJSON* request);
 cJSON* ethernet_ip_write(cJSON* request);
 cJSON* ethernet_ip_create_tag(cJSON* request);
 cJSON* ethernet_ip_destroy_tag(cJSON* request);
-
+char* on_request( char *requestString );
 
 char* on_request( char *requestString ){
     cJSON *response;
@@ -98,7 +98,7 @@ cJSON* ethernet_ip_read(cJSON* request) {
     int32_t tag_id = (int32_t)(TagId -> valuedouble);
     char* type = Type -> valuestring;
     int offset = (int)(Offset -> valuedouble);
-    int rc = plc_tag_read(tag_id, 5000);
+    plc_tag_read(tag_id, 5000);
     if (strcmp(type, "uint64") == 0) {
         uint64_t value = plc_tag_get_uint64(tag_id, offset);
         response = cJSON_CreateNumber(value);
@@ -148,43 +148,42 @@ cJSON* ethernet_ip_write(cJSON* request) {
     char* type = Type -> valuestring;
     int offset = (int)(Offset -> valuedouble);
     double value = Value -> valuedouble;
-    int ret_value;
-    int rc;
+    //int ret_value = 0;
     if (strcmp(type, "uint64") == 0) {
-        ret_value = plc_tag_set_uint64(tag_id, offset, value);
+        plc_tag_set_uint64(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "int64") == 0) {
-        ret_value = plc_tag_set_int64(tag_id, offset, value);
+        plc_tag_set_int64(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "uint32") == 0) {
-        ret_value = plc_tag_set_uint32(tag_id, offset, value);
+        plc_tag_set_uint32(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "int32") == 0) {
-        ret_value = plc_tag_set_int32(tag_id, offset, value);
+        plc_tag_set_int32(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "uint16") == 0) {
-        ret_value = plc_tag_set_uint16(tag_id, offset, value);
+        plc_tag_set_uint16(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "int16") == 0) {
-        ret_value = plc_tag_set_int16(tag_id, offset, value);
+        plc_tag_set_int16(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "uint8") == 0) {
-        ret_value = plc_tag_set_uint16(tag_id, offset,value);
+         plc_tag_set_uint16(tag_id, offset,value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "int8") == 0) {
-        ret_value = plc_tag_set_uint16(tag_id, offset, value);
+         plc_tag_set_uint16(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "float64") == 0) {
-        ret_value = plc_tag_set_float64(tag_id, offset, value);
+        plc_tag_set_float64(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else if (strcmp(type, "float32") == 0) {
-        ret_value = plc_tag_set_float32(tag_id, offset, value);
+        plc_tag_set_float32(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
     } else {
         response = on_error(type);
         return response;
     }
-    rc = plc_tag_write(tag_id, 5000);
+    plc_tag_write(tag_id, 5000);
     return on_ok(response);
 }
 

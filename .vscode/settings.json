@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "ethernet_ip.h": "c",
-        "eport.h": "c"
+        "eport.h": "c",
+        "string.h": "c",
+        "libplctag.h": "c",
+        "cjson.h": "c"
     }
 }

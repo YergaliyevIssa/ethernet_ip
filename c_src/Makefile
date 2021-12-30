@@ -44,7 +44,7 @@ endif
 CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR) -I $(CJSON_INCLUDE_DIR) -I $(EPORT_INCLUDE_DIR) -I $(CLIENT_INCLUDE_DIR) -I $(LIBPLC_INCLUDE_DIR)
 CXXFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR) -I $(CJSON_INCLUDE_DIR) -I $(EPORT_INCLUDE_DIR) -I $(CLIENT_INCLUDE_DIR) -I $(LIBPLC_INCLUDE_DIR)
 
-LDLIBS += -lssl -lcrypto -L $(ERL_INTERFACE_LIB_DIR) -lerl_interface -lei  -L $(CJSON_LIB_DIR) -L $(CJSON_LIB64_DIR) -lcjson -lcjson_utils -L $(LIBPLC_LIB_DIR) -lplctag
+LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lerl_interface -lei  -L $(CJSON_LIB_DIR) -L $(CJSON_LIB64_DIR) -lcjson -lcjson_utils -L $(LIBPLC_LIB_DIR) -l:libplctag.a -lpthread
 
 # Verbosity.
 
