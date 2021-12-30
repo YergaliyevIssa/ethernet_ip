@@ -98,6 +98,7 @@ cJSON* ethernet_ip_read(cJSON* request) {
     int32_t tag_id = (int32_t)(TagId -> valuedouble);
     char* type = Type -> valuestring;
     int offset = (int)(Offset -> valuedouble);
+    int rc = plc_tag_read(tag_id, 5000);
     if (strcmp(type, "uint64") == 0) {
         uint64_t value = plc_tag_get_uint64(tag_id, offset);
         response = cJSON_CreateNumber(value);
@@ -148,6 +149,7 @@ cJSON* ethernet_ip_write(cJSON* request) {
     int offset = (int)(Offset -> valuedouble);
     double value = Value -> valuedouble;
     int ret_value;
+    int rc;
     if (strcmp(type, "uint64") == 0) {
         ret_value = plc_tag_set_uint64(tag_id, offset, value);
         response = cJSON_CreateNumber(value);
@@ -182,7 +184,7 @@ cJSON* ethernet_ip_write(cJSON* request) {
         response = on_error(type);
         return response;
     }
-
+    rc = plc_tag_write(tag_id, 5000);
     return on_ok(response);
 }
 
