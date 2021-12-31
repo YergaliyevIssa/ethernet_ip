@@ -182,7 +182,7 @@ char* cmd2string(ETHERNET_IP_CMD cmd){
     }else if( cmd == DESTROY_TAG){
         return "destroy";
     }else if( cmd == READ_DATA){
-        return "raed";
+        return "read";
     }else if( cmd == WRITE_DATA ){
         return "write";
     }else{
