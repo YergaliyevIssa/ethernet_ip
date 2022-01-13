@@ -90,6 +90,9 @@ error:
 cJSON* ethernet_ip_create_tag(cJSON* request) {
     char* connection_path = request -> valuestring;
     int32_t tag_id = plc_tag_create(connection_path, TIMEOUT);
+    if (tag_id < 0) {
+        return on_error("Cannot create tag");
+    }
     return on_ok(cJSON_CreateNumber(tag_id));
 }
 
@@ -107,7 +110,10 @@ cJSON* ethernet_ip_read(cJSON* request) {
     int32_t tag_id = (int32_t)(TagId -> valuedouble);
     char* type = Type -> valuestring;
     int offset = (int)(Offset -> valuedouble);
-    plc_tag_read(tag_id, TIMEOUT);
+    int rc = plc_tag_read(tag_id, TIMEOUT);
+    if (rc != PLCTAG_STATUS_OK) {
+        return on_error("Read error");
+    }
     if (strcmp(type, "uint64") == 0) {
         uint64_t value = plc_tag_get_uint64(tag_id, offset);
         response = cJSON_CreateNumber(value);
@@ -192,7 +198,10 @@ cJSON* ethernet_ip_write(cJSON* request) {
         response = on_error(type);
         return response;
     }
-    plc_tag_write(tag_id, TIMEOUT);
+    int rc = plc_tag_write(tag_id, TIMEOUT);
+    if (rc != PLCTAG_STATUS_OK) {
+        return on_error("Cannot write data to tag");
+    }
     return on_ok(response);
 }
 
@@ -205,9 +214,13 @@ cJSON* ethernet_ip_browse_tags(cJSON* request) {
 
 
     controller_listing_tag = open_tag(connection_path_base, "@tags");
+    if (controller_listing_tag <= 0) {
+        return on_error("Cannot browse tags");
+    }
     int rc = get_tag_list(controller_listing_tag, &tag_list, NULL);
     if(rc != PLCTAG_STATUS_OK) {
-        fprintf(stderr, "Unable to get tag list or no tags visible in the target PLC, error %s!\n", plc_tag_decode_error(rc));
+        free_tag_list(&tag_list);
+        return on_error("Unable to get tag list or no tags visible in the target PLC");
     }
 
     /*
@@ -225,12 +238,13 @@ cJSON* ethernet_ip_browse_tags(cJSON* request) {
 
             program_listing_tag = open_tag(connection_path_base, buf);
             if(program_listing_tag <= 0) {
-                fprintf(stderr, "Unable to create listing tag, error %s!\n", plc_tag_decode_error(program_listing_tag));
+                //free_tag_list(&tag_list);
+                //fprintf(stderr, "Unable to create listing tag, error %s!\n", plc_tag_decode_error(program_listing_tag));
             }
 
             rc = get_tag_list(program_listing_tag, &tag_list, entry);
             if(rc != PLCTAG_STATUS_OK) {
-                fprintf(stderr, "Unable to get program tag list or no tags visible in the target PLC, error %s!\n", plc_tag_decode_error(rc));
+                //fprintf(stderr, "Unable to get program tag list or no tags visible in the target PLC, error %s!\n", plc_tag_decode_error(rc));
             }
 
             plc_tag_destroy(program_listing_tag);
@@ -241,7 +255,7 @@ cJSON* ethernet_ip_browse_tags(cJSON* request) {
     int tag_num = 0;
 
     /* output all the tags. */
-    for(struct tag_entry_s *tag = tag_list; tag; tag = tag->next) {
+    for(tag_entry_s *tag = tag_list; tag; tag = tag->next) {
         char buf[256] = {0};
         if(!tag->parent) {
             sprintf(buf, "%s", tag->name);
@@ -250,6 +264,13 @@ cJSON* ethernet_ip_browse_tags(cJSON* request) {
         }
         stpncpy(tag_names[tag_num++], buf, 256);
     }
+
+    /* clean up memory */
+    free_tag_list(&tag_list);
+
+    /* Destroy this at the end to keep the session open. */
+    plc_tag_destroy(controller_listing_tag);
+
 
     cJSON* array_names = cJSON_CreateArray();
     for (int i = 0;i < tag_num; i++) {
@@ -297,12 +318,12 @@ int get_tag_list(int32_t tag, struct tag_entry_s **tag_list, struct tag_entry_s 
     return PLCTAG_STATUS_OK;
 }
 
-int process_tag_entry(int32_t tag, int *offset, uint16_t *last_tag_id, struct tag_entry_s **tag_list, struct tag_entry_s *parent)
+int process_tag_entry(int32_t tag, int *offset, uint16_t *last_tag_id,  tag_entry_s **tag_list,  tag_entry_s *parent)
 {
     int rc = PLCTAG_STATUS_OK;
     int tag_name_len = 0;
     char *tag_name = NULL;
-    struct tag_entry_s *tag_entry = NULL;
+    tag_entry_s *tag_entry = NULL;
 
     /* each entry looks like this:
         uint32_t instance_id    monotonically increasing but not contiguous
@@ -372,12 +393,30 @@ int open_tag(char *base, char *tag_name)
     tag = plc_tag_create(tag_string, TIMEOUT);
     if(tag < 0) {
         fprintf(stderr, "Unable to open tag!  Return code %s\n", plc_tag_decode_error(tag));
-        usage();
     }
 
     return tag;
 }
 
+void free_tag_list(tag_entry_s **tag_list) {
+    tag_entry_s *current_tag = *tag_list;
+    while(current_tag) {
+        tag_entry_s *tag = current_tag;
+
+        /* unlink */
+        current_tag = current_tag->next;
+
+        if(tag->name) {
+            free(tag->name);
+            tag->name = NULL;
+        }
+
+        free(tag);
+    }
+    *tag_list = NULL;
+    return;
+
+ }
 int main(int argc, char* argv[]) {
 
     eport_loop(&on_request);
