@@ -34,7 +34,8 @@
   create_tag/2, create_tag/3,
   destroy_tag/2, destroy_tag/3,
   read/2, read/3,
-  write/2, write/3
+  write/2, write/3,
+  browse_tags/2, browse_tags/3
 ]).
 
 -define(CONNECT_TIMEOUT,30000).
@@ -102,6 +103,23 @@ write(PID, Params) ->
 write(PID, #{<<"tag_id">>:=_TagID, <<"type">>:=_Type, <<"offset">>:=_Offset, <<"value">>:=_Value}=Params, Timeout) ->
   transaction(PID, <<"write">>, Params, Timeout);
 write(_PID, WrongParams, _Timeout) ->
+  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
+  {error, {wrong_params, WrongParams}}.
+
+browse_tags(PID, Params) ->
+  browse_tags(PID, Params, ?RESPONSE_TIMEOUT).
+browse_tags(PID, #{<<"gateway">>:=_IP, <<"path">>:=_Path,<<"plc">>:=_PLC}=Params, Timeout) ->
+  ConnectionStr =
+    maps:fold(
+      fun(Key, Value, ConnStr) ->
+        KeyValue = <<Key/binary, "=", Value/binary>>,
+        case ConnStr of
+          <<>> -> KeyValue;
+          ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
+        end
+      end, <<>>, Params),
+  transaction(PID, <<"browse_tags">>,ConnectionStr, Timeout);
+browse_tags(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
 

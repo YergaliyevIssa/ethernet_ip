@@ -17,6 +17,9 @@
 #include <cjson/cJSON.h>
 #include <libplctag.h>
 
+// Timeout for reading and writing operations
+#define TIMEOUT 5000
+
 typedef unsigned long TID;
 
 // Command types
@@ -24,7 +27,8 @@ typedef enum ETHERNET_IP_CMD {
     CREATE_TAG,
     DESTROY_TAG,
     READ_DATA,
-    WRITE_DATA
+    WRITE_DATA,
+    BROWSE_TAGS
 } ETHERNET_IP_CMD;
 
 // Request

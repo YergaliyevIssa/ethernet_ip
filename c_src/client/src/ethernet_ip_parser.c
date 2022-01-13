@@ -66,10 +66,12 @@ int parse_request( const char *message, ETHERNET_IP_CLIENT_REQUEST* request ){
         if (parse_read_request( request->body ) != 0){ goto error; }
     } else if( request->cmd == WRITE_DATA ){
         if (parse_write_request( request->body ) != 0) { goto error; }
-    }else if( request->cmd == CREATE_TAG ){
+    } else if( request->cmd == CREATE_TAG ){
         if (parse_create_request( request->body ) != 0){ goto error; }
-    }else if( request->cmd == DESTROY_TAG ){
+    } else if( request->cmd == DESTROY_TAG ){
         if (parse_destroy_request( request->body ) != 0){ goto error; }
+    } else if (request->cmd == BROWSE_TAGS) {
+        if (parse_browse_request( request->body ) != 0){ goto error; }
     } else {
         LOGERROR("ERROR: invalid command type %d\r\n",request->cmd);
         goto error;
@@ -138,7 +140,6 @@ error:
 
 
 int parse_create_request(cJSON* body){
-
     if (!cJSON_IsString(body)) {
         return -1;
     }
@@ -160,18 +161,26 @@ int parse_write_request(cJSON* body) {
     return 0;
 }
 
+int parse_browse_request(cJSON* body) {
+    if (!cJSON_IsString(body)) {
+        return -1;
+    }
+    return 0;
+}
 
 //------------------Internal helpers--------------------------------------------
 ETHERNET_IP_CMD string2cmd(char *cmd){
     if ( strcmp(cmd, "create") == 0 ){
         return CREATE_TAG;
-    }else if( strcmp(cmd, "destroy") == 0){
+    } else if( strcmp(cmd, "destroy") == 0){
         return DESTROY_TAG;
-    }else if( strcmp(cmd, "read") == 0){
+    } else if( strcmp(cmd, "read") == 0){
         return READ_DATA;
-    }else if( strcmp(cmd, "write") == 0){
+    } else if( strcmp(cmd, "write") == 0){
         return WRITE_DATA;
-    }else{
+    } else if (strcmp(cmd, "browse_tags") == 0) {
+        return BROWSE_TAGS;
+    } else{
         return -1; 
     }
 }
@@ -179,13 +188,15 @@ ETHERNET_IP_CMD string2cmd(char *cmd){
 char* cmd2string(ETHERNET_IP_CMD cmd){
     if ( cmd == CREATE_TAG ){
         return "create";
-    }else if( cmd == DESTROY_TAG){
+    } else if( cmd == DESTROY_TAG){
         return "destroy";
-    }else if( cmd == READ_DATA){
+    } else if( cmd == READ_DATA){
         return "read";
-    }else if( cmd == WRITE_DATA ){
+    } else if( cmd == WRITE_DATA ){
         return "write";
-    }else{
+    } else if (cmd == BROWSE_TAGS) {
+        return "browse_tags";
+    } else{
         return NULL; 
     }
 }
