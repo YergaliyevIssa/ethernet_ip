@@ -9,6 +9,7 @@ int parse_create_request( cJSON* body );
 int parse_read_request( cJSON* body );
 int parse_write_request( cJSON* body );
 int parse_destroy_request( cJSON* body);
+int parse_browse_request(cJSON* body);
 
 ETHERNET_IP_CMD string2cmd(char *cmd);
 char* cmd2string(ETHERNET_IP_CMD cmd);

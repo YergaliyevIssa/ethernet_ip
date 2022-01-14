@@ -10,7 +10,16 @@ cJSON* ethernet_ip_read(cJSON* request);
 cJSON* ethernet_ip_write(cJSON* request);
 cJSON* ethernet_ip_create_tag(cJSON* request);
 cJSON* ethernet_ip_destroy_tag(cJSON* request);
+cJSON* ethernet_ip_browse_tags(cJSON* request);
 char* on_request( char *requestString );
+
+
+// Source discovery helpers
+int open_tag(char *base, char *tag_name);
+int get_tag_list(int32_t tag, struct tag_entry_s **tag_list, struct tag_entry_s *parent);
+int process_tag_entry(int32_t tag, int *offset, uint16_t *last_tag_id,  tag_entry_s **tag_list,  tag_entry_s *parent);
+void free_tag_list(tag_entry_s **tag_list);
+
 typedef struct tag_entry_s {
     struct tag_entry_s *next;
     char *name;
