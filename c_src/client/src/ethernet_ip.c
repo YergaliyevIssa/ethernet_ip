@@ -304,7 +304,6 @@ int get_tag_list(int32_t tag,  tag_entry_s **tag_list, tag_entry_s *parent)
     rc = plc_tag_read(tag, TIMEOUT);
     if(rc != PLCTAG_STATUS_OK) {
         fprintf(stderr, "Error %s trying to send CIP request!\n", plc_tag_decode_error(rc));
-        usage();
     }
 
     /* process the raw data. */
