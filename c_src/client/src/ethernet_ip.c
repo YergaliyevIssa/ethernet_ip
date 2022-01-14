@@ -13,18 +13,17 @@ cJSON* ethernet_ip_destroy_tag(cJSON* request);
 cJSON* ethernet_ip_browse_tags(cJSON* request);
 char* on_request( char *requestString );
 
-
 // Source discovery helpers
-int open_tag(char *base, char *tag_name);
-int get_tag_list(int32_t tag, struct tag_entry_s **tag_list, struct tag_entry_s *parent);
-int process_tag_entry(int32_t tag, int *offset, uint16_t *last_tag_id,  tag_entry_s **tag_list,  tag_entry_s *parent);
-void free_tag_list(tag_entry_s **tag_list);
-
 typedef struct tag_entry_s {
     struct tag_entry_s *next;
     char *name;
     struct tag_entry_s *parent;
 } tag_entry_s;
+
+int open_tag(char *base, char *tag_name);
+int get_tag_list(int32_t tag,  tag_entry_s **tag_list,  tag_entry_s *parent);
+int process_tag_entry(int32_t tag, int *offset, uint16_t *last_tag_id,  tag_entry_s **tag_list,  tag_entry_s *parent);
+void free_tag_list(tag_entry_s **tag_list);
 
 
 
@@ -238,7 +237,7 @@ cJSON* ethernet_ip_browse_tags(cJSON* request) {
      * This is safe because we push the new tags on the front of the list and
      * so do not change any existing tag in the list.
      */
-    for(struct tag_entry_s *entry = tag_list; entry; entry = entry->next) {
+    for(tag_entry_s *entry = tag_list; entry; entry = entry->next) {
         if(strncmp(entry->name, "Program:", strlen("Program:")) == 0) {
             char buf[256] = {0};
 
@@ -294,7 +293,7 @@ cJSON* ethernet_ip_browse_tags(cJSON* request) {
 // Internal helpers for browse tags // 
 //////////////////////////////////////
 
-int get_tag_list(int32_t tag, struct tag_entry_s **tag_list, struct tag_entry_s *parent)
+int get_tag_list(int32_t tag,  tag_entry_s **tag_list, tag_entry_s *parent)
 {
     int rc = PLCTAG_STATUS_OK;
     uint16_t last_tag_entry_id = 0;
