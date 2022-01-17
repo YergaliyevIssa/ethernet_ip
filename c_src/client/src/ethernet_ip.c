@@ -94,7 +94,6 @@ error:
 }
 
 
-
 cJSON* ethernet_ip_create_tag(cJSON* request) {
     char* connection_path = request -> valuestring;
     int32_t tag_id = plc_tag_create(connection_path, TIMEOUT);
@@ -112,104 +111,45 @@ cJSON* ethernet_ip_destroy_tag(cJSON* request) {
 
 cJSON* ethernet_ip_read(cJSON* request) {
     cJSON* TagId = cJSON_GetObjectItemCaseSensitive(request, "tag_id");
-    cJSON* Type = cJSON_GetObjectItemCaseSensitive(request,"type");
     cJSON* Offset = cJSON_GetObjectItemCaseSensitive(request, "offset");
+    cJSON* Length = cJSON_GetObjectItemCaseSensitive(request, "length");
     cJSON* response = NULL;
     int32_t tag_id = (int32_t)(TagId -> valuedouble);
-    char* type = Type -> valuestring;
     int offset = (int)(Offset -> valuedouble);
+    int length = (int)(Length -> valuedouble);
     int rc = plc_tag_read(tag_id, TIMEOUT);
     if (rc != PLCTAG_STATUS_OK) {
         return on_error("Read error");
     }
-    if (strcmp(type, "uint64") == 0) {
-        uint64_t value = plc_tag_get_uint64(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "int64") == 0) {
-        int64_t value = plc_tag_get_int64(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "uint32") == 0) {
-        uint32_t value = plc_tag_get_uint32(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "int32") == 0) {
-        int32_t value = plc_tag_get_int32(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "uint16") == 0) {
-        uint16_t value = plc_tag_get_uint16(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "int16") == 0) {
-        int16_t value = plc_tag_get_int16(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "uint8") == 0) {
-        uint8_t value = plc_tag_get_uint16(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "int8") == 0) {
-        int8_t value = plc_tag_get_uint16(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "float64") == 0) {
-        double value = plc_tag_get_float64(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "float32") == 0) {
-        float value = plc_tag_get_float32(tag_id, offset);
-        response = cJSON_CreateNumber(value);
-    } else {
-        response = on_error(type);
+    uint8_t* buffer[10000];
+    int status = plc_tag_get_raw_bytes(tag_id, offset, buffer, length);
+    if (status < 0) {
+        response = on_error("Cannot read data form tag");
         return response;
     }
-    
+    buffer[length] = '\0';
+    response = cJSON_CreateString(buffer);
     return on_ok(response);
 }
 
 cJSON* ethernet_ip_write(cJSON* request) {
     cJSON* TagId = cJSON_GetObjectItemCaseSensitive(request, "tag_id");
-    cJSON* Type = cJSON_GetObjectItemCaseSensitive(request,"type");
     cJSON* Offset = cJSON_GetObjectItemCaseSensitive(request, "offset");
+    cJSON* Length = cJSON_GetObjectItemCaseSensitive(request, "length");
     cJSON* Value = cJSON_GetObjectItemCaseSensitive(request, "value");
     cJSON* response = NULL;
 
     int32_t tag_id = (int32_t)(TagId -> valuedouble);
-    char* type = Type -> valuestring;
     int offset = (int)(Offset -> valuedouble);
-    double value = Value -> valuedouble;
-    //int ret_value = 0;
-    if (strcmp(type, "uint64") == 0) {
-        plc_tag_set_uint64(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "int64") == 0) {
-        plc_tag_set_int64(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "uint32") == 0) {
-        plc_tag_set_uint32(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "int32") == 0) {
-        plc_tag_set_int32(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "uint16") == 0) {
-        plc_tag_set_uint16(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "int16") == 0) {
-        plc_tag_set_int16(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "uint8") == 0) {
-         plc_tag_set_uint16(tag_id, offset,value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "int8") == 0) {
-         plc_tag_set_uint16(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "float64") == 0) {
-        plc_tag_set_float64(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else if (strcmp(type, "float32") == 0) {
-        plc_tag_set_float32(tag_id, offset, value);
-        response = cJSON_CreateNumber(value);
-    } else {
-        response = on_error(type);
+    int length = (int)(Length -> valuedouble);
+    uint8_t* data = (uint8_t*)(Value -> valuestring);
+    
+    int status = plc_tag_set_raw_bytes(tag_id, offset, data, length);
+    if (status < 0) {
+        response = on_error("Cannot write data to tag");
         return response;
     }
-    int rc = plc_tag_write(tag_id, TIMEOUT);
-    if (rc != PLCTAG_STATUS_OK) {
-        return on_error("Cannot write data to tag");
-    }
+    response = cJSON_CreateString("ok");
     return on_ok(response);
 }
 
@@ -270,7 +210,7 @@ cJSON* ethernet_ip_browse_tags(cJSON* request) {
         } else {
             sprintf(buf, "%s.%s", tag->parent->name, tag->name);
         }
-        stpncpy(tag_names[tag_num++], buf, 256);
+        strncpy(tag_names[tag_num++], buf, 256);
     }
 
     /* clean up memory */
@@ -292,7 +232,6 @@ cJSON* ethernet_ip_browse_tags(cJSON* request) {
 //////////////////////////////////////
 // Internal helpers for browse tags // 
 //////////////////////////////////////
-
 int get_tag_list(int32_t tag,  tag_entry_s **tag_list, tag_entry_s *parent)
 {
     int rc = PLCTAG_STATUS_OK;
