@@ -92,7 +92,7 @@ destroy_tag(PID, TagID, Timeout) ->
 
 read(PID, Params) ->
   read(PID, Params, ?RESPONSE_TIMEOUT).
-read(PID, #{<<"tag_id">>:=_TagID, <<"type">>:=_Type, <<"offset">>:=_Offset}=Params, Timeout) ->
+read(PID, #{<<"tag_id">>:=_TagID, <<"length">>:=_Length, <<"offset">>:=_Offset}=Params, Timeout) ->
   transaction(PID, <<"read">>, Params, Timeout);
 read(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
@@ -100,7 +100,7 @@ read(_PID, WrongParams, _Timeout) ->
 
 write(PID, Params) ->
   write(PID, Params, ?RESPONSE_TIMEOUT).
-write(PID, #{<<"tag_id">>:=_TagID, <<"type">>:=_Type, <<"offset">>:=_Offset, <<"value">>:=_Value}=Params, Timeout) ->
+write(PID, #{<<"tag_id">>:=_TagID, <<"length">>:=_Length, <<"offset">>:=_Offset, <<"value">>:=_Value}=Params, Timeout) ->
   transaction(PID, <<"write">>, Params, Timeout);
 write(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
