@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <eport.h>
+#include <base64.h>
 #include "ethernet_ip.h"
 
 cJSON* on_ok(cJSON* response);
@@ -121,14 +122,18 @@ cJSON* ethernet_ip_read(cJSON* request) {
     if (rc != PLCTAG_STATUS_OK) {
         return on_error("Read error");
     }
-    uint8_t* buffer[10000];
+    uint8_t* buffer = (uint8_t*)malloc(length + 1);
     int status = plc_tag_get_raw_bytes(tag_id, offset, buffer, length);
     if (status < 0) {
         response = on_error("Cannot read data form tag");
         return response;
     }
     buffer[length] = '\0';
-    response = cJSON_CreateString(buffer);
+    uint8_t* encoded_str = (uint8_t*)malloc(length / 2 * 3 + 1);
+    base64_encode(buffer, length, encoded_str);
+    response = cJSON_CreateString(encoded_str);
+    free(buffer);
+    free(encoded_str);
     return on_ok(response);
 }
 
