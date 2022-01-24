@@ -118,7 +118,8 @@ browse_tags(PID, #{<<"gateway">>:=_IP, <<"path">>:=_Path,<<"plc">>:=_PLC}=Params
           ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
         end
       end, <<>>, Params),
-  transaction(PID, <<"browse_tags">>,ConnectionStr, Timeout);
+  ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,    
+  transaction(PID, <<"browse_tags">>,ConnectionStrBase, Timeout);
 browse_tags(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.

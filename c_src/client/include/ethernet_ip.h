@@ -44,3 +44,7 @@ void purge_request( ETHERNET_IP_CLIENT_REQUEST *request );
 
 // Build response
 char* create_response( ETHERNET_IP_CLIENT_REQUEST *request, cJSON *response );
+
+// source discovery
+// we get all necessary information about all tags in AB PLC
+cJSON* browse_tags(const char* tag_string_base);

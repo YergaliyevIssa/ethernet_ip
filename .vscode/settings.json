@@ -5,6 +5,7 @@
         "string.h": "c",
         "libplctag.h": "c",
         "cjson.h": "c",
-        "base64.h": "c"
+        "base64.h": "c",
+        "stdbool.h": "c"
     }
 }
