@@ -365,7 +365,7 @@ cJSON* browse_tags(const char* tag_string_base)
         }
     }
 
-    free(tag_string_base);
+    //free(tag_string_base);
 
     /* Destroy this at the end to keep the session open. */
     plc_tag_destroy(controller_listing_tag);

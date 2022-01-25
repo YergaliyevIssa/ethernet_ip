@@ -141,7 +141,12 @@ wait_for_reply( PID, Command, TID, Timeout )->
         #{<<"cmd">> := Command, <<"tid">> := TID, <<"reply">> := Reply}->
           case Reply of
             #{<<"type">> := <<"ok">>, <<"result">> := CmdResult}->
-              {ok, CmdResult};
+              if
+                Command == <<"read">> ->
+                  {ok, CmdResult};
+                true ->
+                  {ok, base64:decode(CmdResult)}
+              end;
             #{<<"type">> := <<"error">>, <<"text">> := Error}->
               {error, Error};
             Unexpected->
