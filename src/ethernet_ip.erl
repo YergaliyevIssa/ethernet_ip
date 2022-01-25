@@ -143,9 +143,9 @@ wait_for_reply( PID, Command, TID, Timeout )->
             #{<<"type">> := <<"ok">>, <<"result">> := CmdResult}->
               if
                 Command == <<"read">> ->
-                  {ok, CmdResult};
+                  {ok, base64:decode(CmdResult)};
                 true ->
-                  {ok, base64:decode(CmdResult)}
+                  {ok, CmdResult}
               end;
             #{<<"type">> := <<"error">>, <<"text">> := Error}->
               {error, Error};

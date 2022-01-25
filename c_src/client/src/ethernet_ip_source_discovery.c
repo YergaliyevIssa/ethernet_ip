@@ -134,7 +134,7 @@ cJSON* browse_tags(const char* tag_string_base)
     plc_tag_set_debug_level(PLCTAG_DEBUG_ERROR);
 
     fprintf(stdout,"Starting with library version %d.%d.%d.\n", version_major, version_minor, version_patch);
-
+    printf("%s\n", tag_string_base);
     /* clear the UDTs. */
     for(int index = 0; index < MAX_UDTS; index++) {
         udts[index] = NULL;
@@ -142,7 +142,7 @@ cJSON* browse_tags(const char* tag_string_base)
 
     debug_level = plc_tag_get_int_attribute(0, "debug", PLCTAG_DEBUG_NONE);
 
-
+    
     /* set up the tag for the listing first. */
     controller_listing_tag = open_tag(tag_string_base, "@tags");
     if(controller_listing_tag <= 0) {
@@ -249,6 +249,7 @@ cJSON* browse_tags(const char* tag_string_base)
         cJSON_AddNumberToObject(single_tag_info, "elem_size", tag -> elem_size);
         cJSON_AddNumberToObject(single_tag_info, "elem_count", tag -> elem_count);
         char* type = get_element_type(tag->type);
+        fprintf(stdout, "ELEMENT TYPE %s ", type);
         cJSON_AddStringToObject(single_tag_info, "type", type);
         // switch(tag->num_dimensions) {
         //     case 1:
@@ -543,9 +544,7 @@ char* get_element_type(uint16_t element_type)
     if(element_type & TYPE_IS_SYSTEM) {
         return "system";
     } else if(element_type & TYPE_IS_STRUCT) {
-        char name[50];
-        strcpy(name, udts[(size_t)(unsigned int)(element_type & TYPE_UDT_ID_MASK)]->name);
-        return name;
+        return udts[(size_t)(unsigned int)(element_type & TYPE_UDT_ID_MASK)]->name;
         //sprintf(stdout,"element type UDT (0x%04x) %s", (unsigned int)(element_type), udts[(size_t)(unsigned int)(element_type & TYPE_UDT_ID_MASK)]->name);
     } else {
         uint16_t atomic_type = element_type & 0xFF; /* MAGIC */
