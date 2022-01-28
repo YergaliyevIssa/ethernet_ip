@@ -292,6 +292,7 @@ cJSON* browse_tags(const char* tag_string_base)
         if(udt) {
             if(udt->name) {
                 cJSON_AddItemToObject(type_info, udt->name, single_type_info=cJSON_CreateObject());
+                cJSON_AddNumberToObject(single_type_info, "elem_size", (int)(unsigned int)udt->instance_size);
             } else {
               //  fprintf(stdout," UDT *UNNAMED* (ID %x, %d bytes, struct handle %x):\n", (unsigned int)(udt->id), (int)(unsigned int)udt->instance_size, (int)(unsigned int)udt->struct_handle);
             }
@@ -314,15 +315,18 @@ cJSON* browse_tags(const char* tag_string_base)
                 }
 
                 /* is it an array? */
+                int elem_count = 1;
                 if(udt->fields[field_index].type & 0x2000) { /* MAGIC */
-                    fprintf(stdout,", array [%d] of type ", (int)(unsigned int)(udt->fields[field_index].metadata));
+                    elem_count = (int)(unsigned int)(udt->fields[field_index].metadata);
+                    //fprintf(stdout,", array [%d] of type ", (int)(unsigned int)(udt->fields[field_index].metadata));
                 } else {
-                    fprintf(stdout,", type ");
+                    elem_count = 1;
                 }
 
                 char* type = get_element_type(udt->fields[field_index].type);
                 cJSON_AddStringToObject(single_field_info, "type", type);
                 cJSON_AddStringToObject(single_field_info, "offset", offset);
+                cJSON_AddNumberToObject(single_field_info, "elem_count", elem_count);
 
                 fprintf(stdout,".\n");
             }
