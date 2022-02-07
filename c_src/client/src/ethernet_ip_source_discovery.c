@@ -113,7 +113,7 @@ static int current_udt = 0;
 static int debug_level = PLCTAG_DEBUG_NONE;
 
 
-cJSON* browse_tags(const char* tag_string_base)
+cJSON* browse_tags(const char* tag_string_base, int* status)
 {
     int rc = PLCTAG_STATUS_OK;
     char *host = NULL;
@@ -121,19 +121,9 @@ cJSON* browse_tags(const char* tag_string_base)
     int32_t controller_listing_tag = 0;
     int32_t program_listing_tag = 0;
     struct tag_entry_s *tag_list = NULL;
-    int version_major = plc_tag_get_int_attribute(0, "version_major", 0);
-    int version_minor = plc_tag_get_int_attribute(0, "version_minor", 0);
-    int version_patch = plc_tag_get_int_attribute(0, "version_patch", 0);
-
-    /* check the library version. */
-    if(plc_tag_check_lib_version(REQUIRED_VERSION) != PLCTAG_STATUS_OK) {
-        fprintf(stdout,"Required compatible library version %d.%d.%d not available, found %d.%d.%d!\n", REQUIRED_VERSION, version_major, version_minor, version_patch);
-        return 1;
-    }
 
     plc_tag_set_debug_level(PLCTAG_DEBUG_ERROR);
 
-    fprintf(stdout,"Starting with library version %d.%d.%d.\n", version_major, version_minor, version_patch);
     printf("%s\n", tag_string_base);
     /* clear the UDTs. */
     for(int index = 0; index < MAX_UDTS; index++) {
@@ -146,18 +136,18 @@ cJSON* browse_tags(const char* tag_string_base)
     /* set up the tag for the listing first. */
     controller_listing_tag = open_tag(tag_string_base, "@tags");
     if(controller_listing_tag <= 0) {
-        fprintf(stdout,"Unable to create listing tag, error %s!\n", plc_tag_decode_error(controller_listing_tag));
-        usage();
+        *status = -1;
+        cJSON * error = cJSON_CreateString("Browse tags error, cannot get tag lists");
+        return error;
     }
 
     /* get the list of controller tags. */
     rc = get_tag_list(controller_listing_tag, &tag_list, NULL);
     if(rc != PLCTAG_STATUS_OK) {
-        fprintf(stdout, "Unable to get tag list or no tags visible in the target PLC, error %s!\n", plc_tag_decode_error(rc));
-        usage();
+        *status = -1;
+        cJSON * error = cJSON_CreateString("Browse tags error, cannot get tag lists");
+        return error;        
     }
-
-    if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout, "Controller tag listing tag ID: %d\n", controller_listing_tag);
 
     /*
      * now loop through the tags and get the list for the program tags.
@@ -170,26 +160,30 @@ cJSON* browse_tags(const char* tag_string_base)
             char buf[256] = {0};
 
             /* this is a program tag, check for its tags. */
-            if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout, "Getting tags for program \"%s\".\n", entry->name);
-
+            if(debug_level >= PLCTAG_DEBUG_INFO) {
+                LOGDEBUG("Getting tags for program \"%s\".\n", entry->name);
+            }
+           
             snprintf(buf, sizeof(buf), "%s.@tags", entry->name);
 
             program_listing_tag = open_tag(tag_string_base, buf);
             if(program_listing_tag <= 0) {
-                fprintf(stdout,"Unable to create listing tag, error %s!\n", plc_tag_decode_error(program_listing_tag));
-                usage();
+                LOGDEBUG("Unable to create listing tag, error %s!\n", plc_tag_decode_error(program_listing_tag));
             }
 
-            if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout, "Program tag listing tag ID: %d\n", program_listing_tag);
+            if(debug_level >= PLCTAG_DEBUG_INFO) {
+                LOGDEBUG("Program tag listing tag ID: %d\n", program_listing_tag);
+            } 
 
             rc = get_tag_list(program_listing_tag, &tag_list, entry);
             if(rc != PLCTAG_STATUS_OK) {
-                fprintf(stdout, "Unable to get program tag list or no tags visible in the target PLC, error %s!\n", plc_tag_decode_error(rc));
-                usage();
+                LOGDEBUG("Unable to get program tag list or no tags visible in the target PLC, error %s!\n", plc_tag_decode_error(rc));
             }
 
             plc_tag_destroy(program_listing_tag);
-            if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout, "Destroying program tag listing tag ID: %d\n", program_listing_tag);
+            if(debug_level >= PLCTAG_DEBUG_INFO) {
+                LOGDEBUG("Destroying program tag listing tag ID: %d\n", program_listing_tag);
+            }
         }
     }
 
@@ -207,8 +201,7 @@ cJSON* browse_tags(const char* tag_string_base)
 
             if(last_udt >= MAX_UDTS) {
                 plc_tag_destroy(controller_listing_tag);
-                fprintf(stdout, "More than %d UDTs are requested!\n", MAX_UDTS);
-                usage();
+                LOGDEBUG("More than %d UDTs are requested!\n", MAX_UDTS);   
             }
         }
     }
@@ -222,11 +215,11 @@ cJSON* browse_tags(const char* tag_string_base)
             rc = get_udt_definition(tag_string_base, udt_id);
             if(rc != PLCTAG_STATUS_OK) {
                 plc_tag_destroy(controller_listing_tag);
-                fprintf(stdout, "Unable to get UDT template ID %u, error %s!\n", (unsigned int)(udt_id), plc_tag_decode_error(rc));
-                usage();
+                LOGDEBUG("Unable to get UDT template ID %u, error %s!\n", (unsigned int)(udt_id), plc_tag_decode_error(rc));
+                
             }
         } else {
-            if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout,  "Already have UDT (%04x) %s.\n", (unsigned int)udt_id, udts[udt_id]->name);
+            if(debug_level >= PLCTAG_DEBUG_INFO) LOGDEBUG("Already have UDT (%04x) %s.\n", (unsigned int)udt_id, udts[udt_id]->name);
         }
 
         current_udt++;
@@ -249,7 +242,7 @@ cJSON* browse_tags(const char* tag_string_base)
         cJSON_AddNumberToObject(single_tag_info, "elem_size", tag -> elem_size);
         cJSON_AddNumberToObject(single_tag_info, "elem_count", tag -> elem_count);
         char* type = get_element_type(tag->type);
-        fprintf(stdout, "ELEMENT TYPE %s ", type);
+        LOGDEBUG("ELEMENT TYPE %s ", type);
         cJSON_AddStringToObject(single_tag_info, "type", type);
         // switch(tag->num_dimensions) {
         //     case 1:
@@ -281,11 +274,27 @@ cJSON* browse_tags(const char* tag_string_base)
         // }
     }
 
-    fprintf(stdout,"UDTs:\n");
     cJSON* type_info = NULL; 
     cJSON_AddItemToObject(source_info, "type_info", type_info=cJSON_CreateObject());
 
-    /* print out all the UDTs */
+    //default types 
+    cJSON_AddNumberToObject(type_info, "BOOL", 1);
+
+    cJSON_AddNumberToObject(type_info, "SINT", 1);
+    cJSON_AddNumberToObject(type_info, "INT", 2);
+    cJSON_AddNumberToObject(type_info, "DINT", 4);
+    cJSON_AddNumberToObject(type_info, "LINT", 8);
+
+    cJSON_AddNumberToObject(type_info, "USINT", 1);
+    cJSON_AddNumberToObject(type_info, "UINT", 2);
+    cJSON_AddNumberToObject(type_info, "UDINT", 4);
+    cJSON_AddNumberToObject(type_info, "ULINT", 8);
+
+    cJSON_AddNumberToObject(type_info, "REAL", 4);
+    cJSON_AddNumberToObject(type_info, "LREAL", 8);
+  
+
+    /* bypass all UDTs to extract specific information */
     for(int index=0; index < MAX_UDTS; index++) {
         struct udt_entry_s *udt = udts[index];
         cJSON* single_type_info = NULL; 
@@ -302,14 +311,13 @@ cJSON* browse_tags(const char* tag_string_base)
                 
                 if(udt->fields[field_index].name) {
                     cJSON_AddItemToObject(single_type_info, udt->fields[field_index].name, single_field_info=cJSON_CreateObject());
-                    fprintf(stdout,"    Field %d: %s, offset %d", field_index, udt->fields[field_index].name, udt->fields[field_index].offset);
+                    LOGDEBUG("Field %d: %s, offset %d", field_index, udt->fields[field_index].name, udt->fields[field_index].offset);
                 }
                 char offset[10];
                 /* is it a bit? */
                 if(udt->fields[field_index].type == 0xC1) {
                     sprintf(offset, "%d,%d", udt->fields[field_index].offset, (int)(unsigned int)(udt->fields[field_index].metadata));
                     /* bit type, the metadata is the bit number. */
-                    fprintf(stdout,":%d", (int)(unsigned int)(udt->fields[field_index].metadata));
                 } else  {
                     sprintf(offset, "%d", udt->fields[field_index].offset);
                 }
@@ -318,7 +326,6 @@ cJSON* browse_tags(const char* tag_string_base)
                 int elem_count = 1;
                 if(udt->fields[field_index].type & 0x2000) { /* MAGIC */
                     elem_count = (int)(unsigned int)(udt->fields[field_index].metadata);
-                    //fprintf(stdout,", array [%d] of type ", (int)(unsigned int)(udt->fields[field_index].metadata));
                 } else {
                     elem_count = 1;
                 }
@@ -327,8 +334,6 @@ cJSON* browse_tags(const char* tag_string_base)
                 cJSON_AddStringToObject(single_field_info, "type", type);
                 cJSON_AddStringToObject(single_field_info, "offset", offset);
                 cJSON_AddNumberToObject(single_field_info, "elem_count", elem_count);
-
-                fprintf(stdout,".\n");
             }
         }
     }
@@ -370,23 +375,13 @@ cJSON* browse_tags(const char* tag_string_base)
         }
     }
 
-    //free(tag_string_base);
-
     /* Destroy this at the end to keep the session open. */
     plc_tag_destroy(controller_listing_tag);
 
-    fprintf(stdout,"SUCCESS!\n");
+    LOGDEBUG("Finished source discovery!\n");
 
     return source_info;
 }
-
-
-void usage()
-{
-    fprintf(stdout, "Usage: list_tags <PLC IP> <PLC path>\nExample: list_tags 10.1.2.3 1,0\n");
-    exit(1);
-}
-
 
 int open_tag(char *base, char *tag_name)
 {
@@ -398,14 +393,13 @@ int open_tag(char *base, char *tag_name)
 
     strncat(tag_string, tag_name, TAG_STRING_SIZE);
 
-    if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout,  "Using tag string \"%s\".\n", tag_string);
-
+    if(debug_level >= PLCTAG_DEBUG_INFO) {
+        LOGDEBUG("Using tag string \"%s\".\n", tag_string);
+    }
     tag = plc_tag_create(tag_string, TIMEOUT_MS);
     if(tag < 0) {
-        fprintf(stdout, "Unable to open tag!  Return code %s\n", plc_tag_decode_error(tag));
-        usage();
+        LOGDEBUG("Unable to open tag!  Return code %s\n", plc_tag_decode_error(tag));
     }
-
     return tag;
 }
 
@@ -420,23 +414,23 @@ int get_tag_list(int32_t tag, struct tag_entry_s **tag_list, struct tag_entry_s 
     /* go get it. */
     rc = plc_tag_read(tag, TIMEOUT_MS);
     if(rc != PLCTAG_STATUS_OK) {
-        fprintf(stdout, "Error %s trying to send CIP request!\n", plc_tag_decode_error(rc));
-        usage();
+        LOGDEBUG("Error %s trying to send CIP request!\n", plc_tag_decode_error(rc));
+        return rc;
     }
 
     /* process the raw data. */
     payload_size = plc_tag_get_size(tag);
     if(payload_size < 0) {
-        fprintf(stdout, "Error getting payload size!\n");
-        usage();
+        LOGDEBUG("Error getting payload size!\n");
+        return -1;
     }
 
-    if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout,  "Listing tag read, result of size %d.\n", payload_size);
+    if(debug_level >= PLCTAG_DEBUG_INFO) LOGDEBUG( "Listing tag read, result of size %d.\n", payload_size);
 
     /* check the payload size. */
     if(payload_size < 4) {
-        fprintf(stdout, "Unexpectedly small payload size %d!\n", payload_size);
-        usage();
+        LOGDEBUG("Unexpectedly small payload size %d!\n", payload_size);
+        return -1;
     }
 
     /* process each entry */
@@ -498,7 +492,7 @@ int process_tag_entry(int32_t tag, int *offset, uint16_t *last_tag_id, struct ta
 
     rc = plc_tag_get_string(tag, *offset, tag_name, tag_name_len + 1);
     if(rc != PLCTAG_STATUS_OK) {
-        fprintf(stdout, "Unable to get tag name string, error %s!\n", plc_tag_decode_error(rc));
+        LOGDEBUG(stdout, "Unable to get tag name string, error %s!\n", plc_tag_decode_error(rc));
         free(tag_name);
         return rc;
     }
@@ -506,17 +500,17 @@ int process_tag_entry(int32_t tag, int *offset, uint16_t *last_tag_id, struct ta
     /* skip past the string. */
     (*offset) += plc_tag_get_string_total_length(tag, *offset);
 
-    if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout,  "Tag %s, string length: %d.\n", tag_name, (int)(unsigned int)strlen(tag_name));
+    if(debug_level >= PLCTAG_DEBUG_INFO) LOGDEBUG("Tag %s, string length: %d.\n", tag_name, (int)(unsigned int)strlen(tag_name));
 
     /* allocate the new tag entry. */
     tag_entry = calloc(1, sizeof(*tag_entry));
 
     if(!tag_entry) {
-        if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout,  "Unable to allocate memory for tag entry!\n");
+        if(debug_level >= PLCTAG_DEBUG_INFO) LOGDEBUG( "Unable to allocate memory for tag entry!\n");
         return PLCTAG_ERR_NO_MEM;
     }
 
-    if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout,  "Found tag name=%s, tag instance ID=%x, tag type=%x, element length (in bytes) = %d, array dimensions = (%d, %d, %d)\n", tag_name, *last_tag_id, tag_type, (int)element_length, (int)array_dims[0], (int)array_dims[1], (int)array_dims[2]);
+    if(debug_level >= PLCTAG_DEBUG_INFO) LOGDEBUG("Found tag name=%s, tag instance ID=%x, tag type=%x, element length (in bytes) = %d, array dimensions = (%d, %d, %d)\n", tag_name, *last_tag_id, tag_type, (int)element_length, (int)array_dims[0], (int)array_dims[1], (int)array_dims[2]);
 
     /* fill in the fields. */
     tag_entry->name = tag_name;
@@ -549,7 +543,6 @@ char* get_element_type(uint16_t element_type)
         return "system";
     } else if(element_type & TYPE_IS_STRUCT) {
         return udts[(size_t)(unsigned int)(element_type & TYPE_UDT_ID_MASK)]->name;
-        //sprintf(stdout,"element type UDT (0x%04x) %s", (unsigned int)(element_type), udts[(size_t)(unsigned int)(element_type & TYPE_UDT_ID_MASK)]->name);
     } else {
         uint16_t atomic_type = element_type & 0xFF; /* MAGIC */
         const char *type = NULL;
@@ -634,7 +627,7 @@ int get_udt_definition(char *tag_string_base, uint16_t udt_id)
     udt_info_tag = open_tag(tag_string_base, buf);
     if(udt_info_tag < 0) {
         fprintf(stdout, "Unable to open UDT info tag, error %s!\n", plc_tag_decode_error(udt_info_tag));
-        usage();
+        
     }
 
     if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout, "UDT info tag ID: %d\n", udt_info_tag);
@@ -642,7 +635,7 @@ int get_udt_definition(char *tag_string_base, uint16_t udt_id)
     rc = plc_tag_read(udt_info_tag, TIMEOUT_MS);
     if(rc != PLCTAG_STATUS_OK) {
         fprintf(stdout, "Error %s while trying to read UDT info!\n", plc_tag_decode_error(rc));
-        usage();
+        
     }
 
     tag_size = plc_tag_get_size(udt_info_tag);
@@ -685,14 +678,14 @@ int get_udt_definition(char *tag_string_base, uint16_t udt_id)
     /* just a sanity check */
     if(template_id != udt_id) {
         fprintf(stdout, "The ID, %x, of the UDT we are reading is not the same as the UDT ID we requested, %x!\n",(unsigned int)template_id, (unsigned int)udt_id);
-        usage();
+        
     }
 
     /* allocate a UDT struct with this info. */
     udts[(size_t)udt_id] = calloc(1, sizeof(struct udt_entry_s) + (sizeof(struct udt_field_entry_s) * num_members));
     if(!udts[(size_t)udt_id]) {
         fprintf(stdout, "Unable to allocate a new UDT definition structure!\n");
-        usage();
+        
     }
 
     udts[(size_t)udt_id]->id = udt_id;
@@ -745,14 +738,14 @@ int get_udt_definition(char *tag_string_base, uint16_t udt_id)
     name_len = plc_tag_get_string_length(udt_info_tag, offset);
     if(name_len <=0 || name_len >= 256) {
         fprintf(stdout, "Unexpected raw UDT name length: %d!\n", name_len);
-        //usage();
+        //
     }
 
     /* create a string for this. */
     name_str = calloc((size_t)(name_len + 1), (size_t)1);
     if(!name_str) {
         fprintf(stdout, "Unable to allocate UDT name string!\n");
-        usage();
+        
     }
 
     /* copy the name */
@@ -760,7 +753,7 @@ int get_udt_definition(char *tag_string_base, uint16_t udt_id)
     if(rc != PLCTAG_STATUS_OK) {
         fprintf(stdout, "Error %s retrieving UDT name string from the tag!\n", plc_tag_decode_error(rc));
         free(name_str);
-        usage();
+        
     }
 
     /* zero terminate the name when we hit the first semicolon. */
@@ -800,7 +793,7 @@ int get_udt_definition(char *tag_string_base, uint16_t udt_id)
         if(name_len <0 || name_len >= 256) {
             plc_tag_destroy(udt_info_tag);
             fprintf(stdout, "Unexpected UDT field name length: %d!\n", name_len);
-            usage();
+            
         }
 
         if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout,  "The name for field %u is %u characters long.\n", field_index, name_len);
@@ -811,7 +804,7 @@ int get_udt_definition(char *tag_string_base, uint16_t udt_id)
             if(!name_str) {
                 plc_tag_destroy(udt_info_tag);
                 fprintf(stdout, "Unable to allocate UDT field name string!\n");
-                usage();
+                
             }
 
             if(debug_level >= PLCTAG_DEBUG_INFO) fprintf(stdout,  "The string for field %u is at %p.\n", field_index, (void *)name_str);
@@ -822,7 +815,7 @@ int get_udt_definition(char *tag_string_base, uint16_t udt_id)
                 plc_tag_destroy(udt_info_tag);
                 fprintf(stdout, "Error %s retrieving UDT field name string from the tag!\n", plc_tag_decode_error(rc));
                 free(name_str);
-                usage();
+                
             }
 
             udts[udt_id]->fields[field_index].name = name_str;

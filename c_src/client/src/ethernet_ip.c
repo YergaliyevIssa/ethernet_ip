@@ -106,7 +106,10 @@ cJSON* ethernet_ip_create_tag(cJSON* request) {
 
 
 cJSON* ethernet_ip_destroy_tag(cJSON* request) {
-    plc_tag_destroy((int32_t)(request -> valuedouble));
+    int status = plc_tag_destroy((int32_t)(request -> valuedouble));
+    if (status < 0) {
+        return on_error("Cannot destroy tag");   
+    }
     return on_ok(NULL);
 }
 
@@ -161,29 +164,18 @@ cJSON* ethernet_ip_write(cJSON* request) {
 cJSON* ethernet_ip_browse_tags(cJSON* request) {
     tag_entry_s* tag_list = NULL;
     char* tag_string_base = request -> valuestring;
-    cJSON* tag_info = browse_tags(tag_string_base);
-    return on_ok(tag_info);
-}
-   
-void free_tag_list(tag_entry_s **tag_list) {
-    tag_entry_s *current_tag = *tag_list;
-    while(current_tag) {
-        tag_entry_s *tag = current_tag;
-
-        /* unlink */
-        current_tag = current_tag->next;
-
-        if(tag->name) {
-            free(tag->name);
-            tag->name = NULL;
-        }
-
-        free(tag);
+    int status = 0;
+    cJSON* tag_info = browse_tags(tag_string_base, &status);
+    if (status == 0) {
+        return on_ok(tag_info);
+    } else {
+        cJSON *error = on_error(tag_info -> valuestring);
+        cJSON_Delete(tag_info);
+        return error;
     }
-    *tag_list = NULL;
-    return;
+    
+}
 
- }
 int main(int argc, char* argv[]) {
 
     eport_loop(&on_request);

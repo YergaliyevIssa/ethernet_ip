@@ -20,6 +20,16 @@
 // Timeout for reading and writing operations
 #define TIMEOUT 5000
 
+// debug print
+//#define DEBUG_PRINT 
+#define DEBUG_PRINT 1
+#ifdef DEBUG_PRINT
+#define LOGDEBUG(...) do{ fprintf(stdout,__VA_ARGS__); } while(0)
+#else
+#define LOGDEBUG(...) do{  } while(0)
+#endif
+
+
 typedef unsigned long TID;
 
 // Command types
@@ -47,4 +57,4 @@ char* create_response( ETHERNET_IP_CLIENT_REQUEST *request, cJSON *response );
 
 // source discovery
 // we get all necessary information about all tags in AB PLC
-cJSON* browse_tags(const char* tag_string_base);
+cJSON* browse_tags(const char* tag_string_base, int* status);
