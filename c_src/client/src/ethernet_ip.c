@@ -175,6 +175,7 @@ cJSON* ethernet_ip_write(cJSON* request) {
         response = on_error("Cannot write data to tag");
         return response;
     }
+    plc_tag_write(tag_id, TIMEOUT);
     response = cJSON_CreateString("ok");
     return on_ok(response);
 }
