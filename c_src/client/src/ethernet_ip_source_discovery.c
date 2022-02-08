@@ -313,13 +313,14 @@ cJSON* browse_tags(const char* tag_string_base, int* status)
                     cJSON_AddItemToObject(single_type_info, udt->fields[field_index].name, single_field_info=cJSON_CreateObject());
                     LOGDEBUG("Field %d: %s, offset %d", field_index, udt->fields[field_index].name, udt->fields[field_index].offset);
                 }
-                char offset[10];
+                int offset = 0, bit_offset = -1;
+                offset = udt->fields[field_index].offset;
                 /* is it a bit? */
                 if(udt->fields[field_index].type == 0xC1) {
-                    sprintf(offset, "%d,%d", udt->fields[field_index].offset, (int)(unsigned int)(udt->fields[field_index].metadata));
                     /* bit type, the metadata is the bit number. */
+                    bit_offset = (int)(unsigned int)(udt->fields[field_index].metadata);
                 } else  {
-                    sprintf(offset, "%d", udt->fields[field_index].offset);
+                    bit_offset = -1;
                 }
 
                 /* is it an array? */
@@ -332,8 +333,11 @@ cJSON* browse_tags(const char* tag_string_base, int* status)
 
                 char* type = get_element_type(udt->fields[field_index].type);
                 cJSON_AddStringToObject(single_field_info, "type", type);
-                cJSON_AddStringToObject(single_field_info, "offset", offset);
+                cJSON_AddNumberToObject(single_field_info, "offset", offset);
                 cJSON_AddNumberToObject(single_field_info, "elem_count", elem_count);
+                if (bit_offset >= 0) {
+                    cJSON_AddNumberToObject(single_field_info, "bit_offset", elem_count);
+                }
             }
         }
     }
