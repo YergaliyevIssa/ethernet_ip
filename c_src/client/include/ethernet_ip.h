@@ -21,8 +21,7 @@
 #define TIMEOUT 5000
 
 // debug print
-//#define DEBUG_PRINT 
-#define DEBUG_PRINT 1
+//#define DEBUG_PRINT 1
 #ifdef DEBUG_PRINT
 #define LOGDEBUG(...) do{ fprintf(stdout,__VA_ARGS__); } while(0)
 #else
