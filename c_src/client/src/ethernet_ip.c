@@ -168,9 +168,9 @@ cJSON* ethernet_ip_write(cJSON* request) {
     int32_t tag_id = (int32_t)(TagId -> valuedouble);
     int offset = (int)(Offset -> valuedouble);
     int length = (int)(Length -> valuedouble);
-    uint8_t* data = (uint8_t*)(Value -> valuestring);
-    
-    int status = plc_tag_set_raw_bytes(tag_id, offset, data, length);
+    uint8_t data[10];
+    int data_len = base64_decode(Value -> valuestring, length, data);
+    int status = plc_tag_set_raw_bytes(tag_id, offset, data, data_len);
     if (status < 0) {
         response = on_error("Cannot write data to tag");
         return response;
