@@ -146,6 +146,7 @@ cJSON* ethernet_ip_read(cJSON* request) {
     uint8_t* buffer = (uint8_t*)malloc(length + 1);
     int status = plc_tag_get_raw_bytes(tag_id, offset, buffer, length);
     if (status < 0) {
+        free(buffer);
         response = on_error("Cannot read data form tag");
         return response;
     }
