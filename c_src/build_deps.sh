@@ -45,7 +45,7 @@ case "$1" in
         #libplctag
         cd $BASEDIR
         if [ ! -d libplctag ]; then
-            git clone https://github.com/libplctag/libplctag.git
+            git clone --branch v2.5.0 https://github.com/libplctag/libplctag.git
         fi
         cd libplctag
         mkdir -p build
