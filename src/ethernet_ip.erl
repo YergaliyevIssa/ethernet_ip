@@ -85,7 +85,7 @@ create_tags(PID, #{<<"tag_names">>:=TagNames, <<"gateway">>:=_IP, <<"path">>:=_P
         end
       end, <<>>, Params1),
   ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,
-  eport_c:request(PID, <<"create">>,#{<<"tag_names">>:=TagNames, <<"tag_string">> => ConnectionStrBase}, Timeout);
+  eport_c:request(PID, <<"create">>,#{<<"tag_names">> => TagNames, <<"tag_string">> => ConnectionStrBase}, Timeout);
 create_tags(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
