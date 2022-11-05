@@ -113,7 +113,7 @@ cJSON* ethernet_ip_create_tags(cJSON* args, char **error) {
 
     cJSON* tag_name_json = NULL;
     cJSON_ArrayForEach(tag_name_json, tag_names) {
-        char tag_string[200]; 
+        char tag_string[200] = ""; 
         strcat(tag_string, tag_string_pattern);
         strcat(tag_string, tag_name_json -> valuestring);
         tags[i] = plc_tag_create(tag_string, 0);
