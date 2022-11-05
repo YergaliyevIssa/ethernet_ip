@@ -14,46 +14,22 @@
 * specific language governing permissions and limitations
 * under the License.
 ----------------------------------------------------------------*/
-#include <cjson/cJSON.h>
+// #include <cjson/cJSON.h>
 #include <libplctag.h>
+#include <eport_c.h>
 
 // Timeout for reading and writing operations
 #define TIMEOUT 5000
 
 // debug print
 //#define DEBUG_PRINT 1
-#ifdef DEBUG_PRINT
-#define LOGDEBUG(...) do{ fprintf(stdout,__VA_ARGS__); } while(0)
-#else
-#define LOGDEBUG(...) do{  } while(0)
-#endif
-
-
-typedef unsigned long TID;
-
-// Command types
-typedef enum ETHERNET_IP_CMD {
-    CREATE_TAG,
-    DESTROY_TAG,
-    READ_DATA,
-    WRITE_DATA,
-    BROWSE_TAGS
-} ETHERNET_IP_CMD;
-
-// Request
-typedef struct ethernet_ip__client_request{
-    ETHERNET_IP_CMD cmd;
-    TID tid;
-    cJSON *body;
-} ETHERNET_IP_CLIENT_REQUEST;
-
-// Parse a request
-int parse_request( const char *message, ETHERNET_IP_CLIENT_REQUEST* request );
-void purge_request( ETHERNET_IP_CLIENT_REQUEST *request );
+// #ifdef DEBUG_PRINT
+// #define LOGDEBUG(...) do{ fprintf(stdout,__VA_ARGS__); } while(0)
+// #else
+// #define LOGDEBUG(...) do{  } while(0)
+// #endif
 
 // Build response
-char* create_response( ETHERNET_IP_CLIENT_REQUEST *request, cJSON *response );
-
 // source discovery
 // we get all necessary information about all tags in AB PLC
 cJSON* browse_tags(const char* tag_string_base, int* status);

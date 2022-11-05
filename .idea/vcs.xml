@@ -2,6 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/_build/default/lib/eport_c" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/_build/default/lib/eport_c/c_src/cJSON" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/_build/default/lib/jsx" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/_build/default/lib/lager" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/c_src/cJSON" vcs="Git" />

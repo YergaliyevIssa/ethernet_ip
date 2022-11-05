@@ -24,6 +24,7 @@
 %%==============================================================================
 -export([
   start_link/1, start_link/2,
+  set_log_level/2,
   stop/1
 ]).
 
@@ -31,8 +32,8 @@
 %%	Protocol API
 %%==============================================================================
 -export([
-  create_tag/2, create_tag/3,
-  destroy_tag/2, destroy_tag/3,
+  create_tags/2, create_tags/3,
+  destroy_tags/2, destroy_tags/3,
   read/2, read/3,
   write/2, write/3,
   browse_tags/2, browse_tags/3
@@ -48,52 +49,60 @@
 %%	Control API
 %%==============================================================================
 start_link(Name) ->
-  start_link(Name,#{ timeout => ?CONNECT_TIMEOUT }).
-start_link(Name, #{timeout := Timeout } = Options) ->
-  Self = self(),
-  PID = spawn_link(fun()->init( Name, Self, Options ) end),
-  receive
-    {PID,connected}-> {ok,PID};
-    {'EXIT', PID, Reason}-> {error, Reason}
-  after
-    Timeout->
-      stop(PID),
-      { error, timeout }
-  end.
+  start_link(Name,#{ response_timeout => ?RESPONSE_TIMEOUT }).
+start_link(Name, Options) ->
+  Dir=code:priv_dir(ethernet_ip),
+  Source=
+    case os:type() of
+      {unix, linux}->atom_to_list( ?MODULE );
+      {win32, _}->atom_to_list( ?MODULE ) ++ ".exe"
+    end,
+  SourcePath = unicode:characters_to_binary(Dir ++ "/" ++ Source),
+  eport_c:start_link(SourcePath, Name, Options).
 
 stop(PID) ->
-  PID ! { self(), stop }.
+  eport_c:stop( PID ).
 
-
+set_log_level(PID, Level)->
+  eport_c:set_log_level(PID, Level).
 %%==============================================================================
 %%	Protocol API
 %%==============================================================================
-create_tag(PID, Params) ->
-  create_tag(PID, Params, ?RESPONSE_TIMEOUT).
-create_tag(PID, #{<<"name">>:=_Name, <<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC} = Params, Timeout) ->
+create_tags(PID, Params) ->
+  create_tags(PID, Params, ?RESPONSE_TIMEOUT).
+create_tags(PID, #{<<"tag_names">>:=TagNames, <<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC} = Params, Timeout) ->
+  Params1 = Params#{<<"protocol">> => <<"ab_eip">>},
   ConnectionStr =
     maps:fold(
       fun(Key, Value, ConnStr) ->
-        KeyValue = <<Key/binary, "=", Value/binary>>,
-        case ConnStr of
-          <<>> -> KeyValue;
-          ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
+        if Key =/= <<"tag_names">> ->
+            KeyValue = <<Key/binary, "=", Value/binary>>,
+            case ConnStr of
+              <<>> -> KeyValue;
+              ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
+            end;
+          true -> ConnStr
         end
-      end, <<>>, Params),
-  transaction(PID, <<"create">>,ConnectionStr, Timeout);
-create_tag(_PID, WrongParams, _Timeout) ->
+      end, <<>>, Params1),
+  ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,
+  eport_c:request(PID, <<"create">>,#{<<"tag_names">>:=TagNames, <<"tag_string">> => ConnectionStrBase}, Timeout);
+create_tags(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
 
-destroy_tag(PID, TagID) ->
-  destroy_tag(PID, TagID, ?RESPONSE_TIMEOUT).
-destroy_tag(PID, TagID, Timeout) ->
-  transaction(PID, <<"destroy">>, TagID, Timeout).
+destroy_tags(PID, TagIDS) ->
+  destroy_tags(PID, TagIDS, ?RESPONSE_TIMEOUT).
+destroy_tags(PID, TagIDS, Timeout) ->
+  eport_c:request(PID, <<"destroy">>, TagIDS, Timeout).
 
 read(PID, Params) ->
   read(PID, Params, ?RESPONSE_TIMEOUT).
-read(PID, #{<<"tag_id">>:=_TagID, <<"length">>:=_Length, <<"offset">>:=_Offset}=Params, Timeout) ->
-  transaction(PID, <<"read">>, Params, Timeout);
+read(PID, TagList, Timeout) when is_list(TagList)->
+  case eport_c:request(PID, <<"read">>, TagList, Timeout) of
+    {ok, Result} ->
+      {ok, [base64:decode(R) || R <- Result]};
+    Other -> Other
+  end;
 read(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
@@ -101,7 +110,7 @@ read(_PID, WrongParams, _Timeout) ->
 write(PID, Params) ->
   write(PID, Params, ?RESPONSE_TIMEOUT).
 write(PID, #{<<"tag_id">>:=_TagID, <<"length">>:=_Length, <<"offset">>:=_Offset, <<"value">>:=_Value}=Params, Timeout) ->
-  transaction(PID, <<"write">>, Params, Timeout);
+  eport_c:request(PID, <<"write">>, Params, Timeout);
 write(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
@@ -109,6 +118,7 @@ write(_PID, WrongParams, _Timeout) ->
 browse_tags(PID, Params) ->
   browse_tags(PID, Params, ?RESPONSE_TIMEOUT).
 browse_tags(PID, #{<<"gateway">>:=_IP, <<"path">>:=_Path,<<"plc">>:=_PLC}=Params, Timeout) ->
+  Params1 = Params#{<<"protocol">> => <<"ab_eip">>},
   ConnectionStr =
     maps:fold(
       fun(Key, Value, ConnStr) ->
@@ -117,9 +127,9 @@ browse_tags(PID, #{<<"gateway">>:=_IP, <<"path">>:=_Path,<<"plc">>:=_PLC}=Params
           <<>> -> KeyValue;
           ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
         end
-      end, <<>>, Params),
-  ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,    
-  transaction(PID, <<"browse_tags">>,ConnectionStrBase, Timeout);
+      end, <<>>, Params1),
+  ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,
+  eport_c:request(PID, <<"browse_tags">>,ConnectionStrBase, Timeout);
 browse_tags(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
@@ -141,12 +151,7 @@ wait_for_reply( PID, Command, TID, Timeout )->
         #{<<"cmd">> := Command, <<"tid">> := TID, <<"reply">> := Reply}->
           case Reply of
             #{<<"type">> := <<"ok">>, <<"result">> := CmdResult}->
-              if
-                Command == <<"read">> ->
-                  {ok, base64:decode(CmdResult)};
-                true ->
-                  {ok, CmdResult}
-              end;
+              {ok, CmdResult};
             #{<<"type">> := <<"error">>, <<"text">> := Error}->
               {error, Error};
             Unexpected->

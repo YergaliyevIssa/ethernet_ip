@@ -6,6 +6,16 @@
         "libplctag.h": "c",
         "cjson.h": "c",
         "base64.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "stdlib.h": "c",
+        "limits.h": "c",
+        "ctype.h": "c",
+        "float.h": "c",
+        "stdio.h": "c",
+        "functional": "c",
+        "string_view": "c",
+        "time.h": "c",
+        "eport_c.h": "c",
+        "eport_c_log.h": "c"
     }
 }
