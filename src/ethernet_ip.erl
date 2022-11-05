@@ -134,96 +134,96 @@ browse_tags(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
 
-transaction( PID, Command, Body, Timeout )->
-  TID = rand:uniform(16#FFFF),
-  Request = #{
-    <<"cmd">> => Command,
-    <<"tid">> => TID,
-    <<"body">> => Body
-  },
-  PID ! { self(), call, jsx:encode(Request), Timeout },
-  wait_for_reply( PID, Command, TID, Timeout ).
+%%transaction( PID, Command, Body, Timeout )->
+%%  TID = rand:uniform(16#FFFF),
+%%  Request = #{
+%%    <<"cmd">> => Command,
+%%    <<"tid">> => TID,
+%%    <<"body">> => Body
+%%  },
+%%  PID ! { self(), call, jsx:encode(Request), Timeout },
+%%  wait_for_reply( PID, Command, TID, Timeout ).
 
-wait_for_reply( PID, Command, TID, Timeout )->
-  receive
-    {PID, reply, {ok, Result} }->
-      case try jsx:decode(Result, [return_maps]) catch _:_->{invalid_json, Result } end of
-        #{<<"cmd">> := Command, <<"tid">> := TID, <<"reply">> := Reply}->
-          case Reply of
-            #{<<"type">> := <<"ok">>, <<"result">> := CmdResult}->
-              {ok, CmdResult};
-            #{<<"type">> := <<"error">>, <<"text">> := Error}->
-              {error, Error};
-            Unexpected->
-              {error, {unexpected_port_reply, Unexpected} }
-          end;
-        Unexpected->
-          ?LOGWARNING("unexpected reply from the port ~p",[Unexpected]),
-          wait_for_reply( PID, Command, TID, Timeout )
-      end;
-    {PID, reply, Error }->
-      Error
-  after
-    Timeout-> {error, timeout}
-  end.
+%%wait_for_reply( PID, Command, TID, Timeout )->
+%%  receive
+%%    {PID, reply, {ok, Result} }->
+%%      case try jsx:decode(Result, [return_maps]) catch _:_->{invalid_json, Result } end of
+%%        #{<<"cmd">> := Command, <<"tid">> := TID, <<"reply">> := Reply}->
+%%          case Reply of
+%%            #{<<"type">> := <<"ok">>, <<"result">> := CmdResult}->
+%%              {ok, CmdResult};
+%%            #{<<"type">> := <<"error">>, <<"text">> := Error}->
+%%              {error, Error};
+%%            Unexpected->
+%%              {error, {unexpected_port_reply, Unexpected} }
+%%          end;
+%%        Unexpected->
+%%          ?LOGWARNING("unexpected reply from the port ~p",[Unexpected]),
+%%          wait_for_reply( PID, Command, TID, Timeout )
+%%      end;
+%%    {PID, reply, Error }->
+%%      Error
+%%  after
+%%    Timeout-> {error, timeout}
+%%  end.
 %%==============================================================================
 %%	Initialization procedure
 %%==============================================================================
-init( Name, Owner, Options ) ->
-  process_flag(trap_exit, true),
-  case init_ext_programm( Name ) of
-    {ok,Port}->
-      Owner ! {self(),connected},
-      loop(Port, Owner, Options);
-    InitError->
-      Owner ! InitError
-  end.
-
-init_ext_programm( _Name )->
-  try
-    Dir = code:priv_dir(?MODULE),
-    Source = atom_to_list(?MODULE),
-    Program = Dir ++ "/" ++ Source,
-    Port = open_port({spawn, Program}, [{packet, ?HEADER_LENGTH}, binary, nouse_stdio]),
-    {ok,Port}
-  catch
-    _:Error->{error,Error}
-  end.
+%%init( Name, Owner, Options ) ->
+%%  process_flag(trap_exit, true),
+%%  case init_ext_programm( Name ) of
+%%    {ok,Port}->
+%%      Owner ! {self(),connected},
+%%      loop(Port, Owner, Options);
+%%    InitError->
+%%      Owner ! InitError
+%%  end.
+%%
+%%init_ext_programm( _Name )->
+%%  try
+%%    Dir = code:priv_dir(?MODULE),
+%%    Source = atom_to_list(?MODULE),
+%%    Program = Dir ++ "/" ++ Source,
+%%    Port = open_port({spawn, Program}, [{packet, ?HEADER_LENGTH}, binary, nouse_stdio]),
+%%    {ok,Port}
+%%  catch
+%%    _:Error->{error,Error}
+%%  end.
 
 
 %%==============================================================================
 %%	THE LOOP
 %%==============================================================================
-loop( Port, Owner, Options ) ->
-  receive
-    {From, call, Msg, Timeout} ->
-      Result = call( Port, Msg, Options, Timeout ),
-      From ! {self(), reply, Result},
-      loop(Port,Owner,Options);
-    {Port, {data, _Data}}->
-      ?LOGWARNING("unexpected data is received from the port"),
-      loop(Port, Owner, Options);
-    { Owner, stop } ->
-      Port ! {self(), close},
-      receive
-        {Port, closed} -> exit(normal)
-      end;
-    {'EXIT', Port, Reason} ->
-      exit({port_terminated, Reason});
-    {'EXIT', Owner, Reason} ->
-      port_close( Port ),
-      exit( Reason );
-    Unexpected->
-      ?LOGWARNING("Unexpected data is received, data: ~p", [Unexpected]),
-      loop(Port, Owner, Options)
-  end.
-
-call( Port, Msg, _Options, Timeout )->
-  Port ! {self(), {command, Msg}},
-  receive
-    {Port, {data, Data}} ->
-      {ok, Data }
-  after
-    Timeout->
-      {error, timeout}
-  end.
+%%loop( Port, Owner, Options ) ->
+%%  receive
+%%    {From, call, Msg, Timeout} ->
+%%      Result = call( Port, Msg, Options, Timeout ),
+%%      From ! {self(), reply, Result},
+%%      loop(Port,Owner,Options);
+%%    {Port, {data, _Data}}->
+%%      ?LOGWARNING("unexpected data is received from the port"),
+%%      loop(Port, Owner, Options);
+%%    { Owner, stop } ->
+%%      Port ! {self(), close},
+%%      receive
+%%        {Port, closed} -> exit(normal)
+%%      end;
+%%    {'EXIT', Port, Reason} ->
+%%      exit({port_terminated, Reason});
+%%    {'EXIT', Owner, Reason} ->
+%%      port_close( Port ),
+%%      exit( Reason );
+%%    Unexpected->
+%%      ?LOGWARNING("Unexpected data is received, data: ~p", [Unexpected]),
+%%      loop(Port, Owner, Options)
+%%  end.
+%%
+%%call( Port, Msg, _Options, Timeout )->
+%%  Port ! {self(), {command, Msg}},
+%%  receive
+%%    {Port, {data, Data}} ->
+%%      {ok, Data }
+%%  after
+%%    Timeout->
+%%      {error, timeout}
+%%  end.
