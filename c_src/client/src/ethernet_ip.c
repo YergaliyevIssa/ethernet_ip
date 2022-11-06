@@ -121,6 +121,10 @@ cJSON* ethernet_ip_create_tags(cJSON* args, char **error) {
     }
     check_status(tags, size);
     
+    for (i = 0; i < size; i++) {
+        LOGTRACE("tags[%d] = %d", i, tags[i]);
+    }
+
     cJSON* result = cJSON_CreateIntArray(tags, size);
     return result;
 }
@@ -156,30 +160,39 @@ cJSON* ethernet_ip_read(cJSON* args, char **error) {
     cJSON_ArrayForEach(tag_info, args) {
         cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id");
           
-        int32_t tag_id = (int32_t)(TagId -> valuedouble);
-        tags[index] = plc_tag_read(tag_id, 0);
+        tags[index] = (int32_t)(TagId -> valuedouble);
+        plc_tag_read(tags[index], 0);
         index += 1;
     }
     check_status(tags, size);
+
+     for (index = 0; index < size; index++) {
+        LOGTRACE("tags[%d] = %d", index, tags[index]);
+    }
+
 
     char** result = (char**)malloc(sizeof(char*) * size);
     tag_info = NULL;
     index = 0;
     cJSON_ArrayForEach(tag_info, args) {
-        cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id");
+        //cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id");
         cJSON* Offset = cJSON_GetObjectItemCaseSensitive(tag_info, "offset");
         cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length"); 
-        int32_t tag_id = (int32_t)(TagId -> valuedouble);
+        //int32_t tag_id = (int32_t)(TagId -> valuedouble);
         int offset = (int)(Offset -> valuedouble);
         int length = (int)(Length -> valuedouble);
         uint8_t* buffer = (uint8_t*)malloc(length + 1);
-        int status = plc_tag_get_raw_bytes(tag_id, offset, buffer, length);
+        int status = plc_tag_get_raw_bytes(tags[index], offset, buffer, length);
         if (status >= 0) {
             buffer[length] = '\0';
             result[index] = (char*)malloc(length / 2 * 3 + 1);
             base64_encode(buffer, length, result[index]);
+            printf(" %s\n", result[index]);
             free(buffer);
+        } else {
+            LOGTRACE("error while reading %s", plc_tag_decode_error(status));
         }
+        index += 1;
     }
     cJSON* response = cJSON_CreateStringArray((const char *const *)result, size);
 

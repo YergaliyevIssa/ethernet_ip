@@ -16,6 +16,7 @@
         "string_view": "c",
         "time.h": "c",
         "eport_c.h": "c",
-        "eport_c_log.h": "c"
+        "eport_c_log.h": "c",
+        "unistd.h": "c"
     }
 }
