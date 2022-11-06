@@ -109,23 +109,25 @@ cJSON* ethernet_ip_create_tags(cJSON* args, char **error) {
     int size = cJSON_GetArraySize( tag_names );
     int32_t* tags = (int32_t*)malloc(sizeof(int32_t) * size);
 
-    int i = 0;
+    int index = 0;
 
     cJSON* tag_name_json = NULL;
     cJSON_ArrayForEach(tag_name_json, tag_names) {
         char tag_string[200] = ""; 
         strcat(tag_string, tag_string_pattern);
         strcat(tag_string, tag_name_json -> valuestring);
-        tags[i] = plc_tag_create(tag_string, 0);
-        i++;
+        tags[index] = plc_tag_create(tag_string, 0);
+        index++;
     }
     check_status(tags, size);
     
-    for (i = 0; i < size; i++) {
-        LOGTRACE("tags[%d] = %d", i, tags[i]);
+    for (index = 0; index < size; index++) {
+        LOGTRACE("tags[%d] = %d", index, tags[index]);
     }
 
     cJSON* result = cJSON_CreateIntArray(tags, size);
+    free(tags);
+
     return result;
 }
 
@@ -200,6 +202,7 @@ cJSON* ethernet_ip_read(cJSON* args, char **error) {
         free(result[index]);
     }
     free(result);
+    free(tags);
     return response;
 }
 
