@@ -206,25 +206,36 @@ cJSON* ethernet_ip_read(cJSON* args, char **error) {
     return response;
 }
 
-cJSON* ethernet_ip_write(cJSON* request, char **error) {
-    // cJSON* TagId = cJSON_GetObjectItemCaseSensitive(request, "tag_id");
-    // cJSON* Offset = cJSON_GetObjectItemCaseSensitive(request, "offset");
-    // cJSON* Length = cJSON_GetObjectItemCaseSensitive(request, "length");
-    // cJSON* Value = cJSON_GetObjectItemCaseSensitive(request, "value");
-    // cJSON* response = NULL;
+cJSON* ethernet_ip_write(cJSON* args, char **error) {
+    if ( !cJSON_IsArray(args) ) {
+        *error = "Array must be passed";
+        return NULL;
+    } 
 
-    // int32_t tag_id = (int32_t)(TagId -> valuedouble);
-    // int offset = (int)(Offset -> valuedouble);
-    // int length = (int)(Length -> valuedouble);
-    // uint8_t data[10];
-    // int data_len = base64_decode(Value -> valuestring, length, data);
-    // int status = plc_tag_set_raw_bytes(tag_id, offset, data, data_len);
-    // if (status < 0) {
-    //     response = on_error("Cannot write data to tag");
-    //     return response;
-    // }
-    // plc_tag_write(tag_id, TIMEOUT);
-    // response = cJSON_CreateString("ok");
+    int size = cJSON_GetArraySize(args);
+    int32_t *tags = (int32_t*)malloc(sizeof(int32_t) * size);
+    int index = 0;
+
+
+    cJSON *tag_info = NULL;
+    cJSON_ArrayForEach(tag_info, args) {
+        cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id");
+        cJSON* Offset = cJSON_GetObjectItemCaseSensitive(tag_info, "offset");
+        cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length");
+        cJSON* Value = cJSON_GetObjectItemCaseSensitive(tag_info, "value");
+        tags[index] = (int32_t)(TagId -> valuedouble);
+        int offset = (int)(Offset -> valuedouble);
+        int length = (int)(Length -> valuedouble);
+        uint8_t raw_data[10];
+        int raw_data_len = base64_decode(Value -> valuestring, length, raw_data);
+        int status = plc_tag_set_raw_bytes(tags[index], offset, raw_data, raw_data_len);
+        if (status >= 0) {
+            plc_tag_write(tags[index], 0);
+        }
+        index += 1;
+    }
+    check_status(tags, size);
+    free(tags);
     return cJSON_CreateString("ok");
 }
 
