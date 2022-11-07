@@ -109,8 +109,13 @@ read(_PID, WrongParams, _Timeout) ->
 
 write(PID, Params) ->
   write(PID, Params, ?RESPONSE_TIMEOUT).
-write(PID, #{<<"tag_id">>:=_TagID, <<"length">>:=_Length, <<"offset">>:=_Offset, <<"value">>:=_Value}=Params, Timeout) ->
-  eport_c:request(PID, <<"write">>, Params, Timeout);
+write(PID, TagList, Timeout) when is_list(TagList)->
+  TagList1 =
+    [begin
+     EncodedValue = base64:encode(Value),
+     Info#{<<"value">> => EncodedValue, <<"length">> => byte_size(EncodedValue)}
+    end || #{<<"value">> := Value}=Info <- TagList],
+  eport_c:request(PID, <<"write">>, TagList1, Timeout);
 write(_PID, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
