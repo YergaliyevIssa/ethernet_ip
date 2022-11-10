@@ -70,36 +70,6 @@ cJSON* on_request(char *method, cJSON *args, char **error){
     return response;
 }
 
-// cJSON* on_ok(cJSON *result){
-//     cJSON *response = cJSON_CreateObject();
-//     if ( cJSON_AddStringToObject(response, "type", "ok") == NULL) {
-//         goto error;
-//     }
-//     if ( !cJSON_AddItemToObject(response, "result", result) ) {
-//         goto error;
-//     }
-//     return response;
-
-// error:
-//     cJSON_Delete( response );
-//     return NULL;
-// }
-
-// cJSON* on_error(char* text){
-//     cJSON *response = cJSON_CreateObject();
-//     if (cJSON_AddStringToObject(response, "type", "error") == NULL) {
-//         goto error;
-//     }
-//     if (cJSON_AddStringToObject(response, "text", text) == NULL) {
-//         goto error;
-//     }
-//     return response;
-
-// error:
-//     cJSON_Delete( response );
-//     return NULL;
-// }
-
 
 cJSON* ethernet_ip_create_tags(cJSON* args, char **error) {
     cJSON* tag_string_json = cJSON_GetObjectItemCaseSensitive(args, "tag_string");
@@ -168,40 +138,34 @@ cJSON* ethernet_ip_read(cJSON* args, char **error) {
     }
     check_status(tags, size);
 
-     for (index = 0; index < size; index++) {
+    for (index = 0; index < size; index++) {
         LOGTRACE("tags[%d] = %d", index, tags[index]);
     }
 
-
-    char** result = (char**)malloc(sizeof(char*) * size);
     tag_info = NULL;
     index = 0;
+
+    cJSON* response = cJSON_CreateArray();
+
     cJSON_ArrayForEach(tag_info, args) {
-        //cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id");
-        cJSON* Offset = cJSON_GetObjectItemCaseSensitive(tag_info, "offset");
-        cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length"); 
-        //int32_t tag_id = (int32_t)(TagId -> valuedouble);
-        int offset = (int)(Offset -> valuedouble);
+        cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length");
         int length = (int)(Length -> valuedouble);
-        uint8_t* buffer = (uint8_t*)malloc(length + 1);
-        int status = plc_tag_get_raw_bytes(tags[index], offset, buffer, length);
+        uint8_t buffer[10];
+        int status = plc_tag_get_raw_bytes(tags[index], 0, buffer, length);
+        cJSON* read_result = cJSON_CreateObject();
         if (status >= 0) {
             buffer[length] = '\0';
-            result[index] = (char*)malloc(length / 2 * 3 + 1);
-            base64_encode(buffer, length, result[index]);
-            printf(" %s\n", result[index]);
-            free(buffer);
+            char encoded_buffer[15];
+            base64_encode(buffer, length, encoded_buffer);
+            cJSON_AddStringToObject(read_result, "value", encoded_buffer);
         } else {
+            cJSON_AddStringToObject(read_result, "error", plc_tag_decode_error(status));
             LOGTRACE("error while reading %s", plc_tag_decode_error(status));
         }
+        cJSON_AddItemToArray(response, read_result);
         index += 1;
     }
-    cJSON* response = cJSON_CreateStringArray((const char *const *)result, size);
 
-    for (index = 0; index < size; index++) {
-        free(result[index]);
-    }
-    free(result);
     free(tags);
     return response;
 }
@@ -220,15 +184,13 @@ cJSON* ethernet_ip_write(cJSON* args, char **error) {
     cJSON *tag_info = NULL;
     cJSON_ArrayForEach(tag_info, args) {
         cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id");
-        cJSON* Offset = cJSON_GetObjectItemCaseSensitive(tag_info, "offset");
         cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length");
         cJSON* Value = cJSON_GetObjectItemCaseSensitive(tag_info, "value");
         tags[index] = (int32_t)(TagId -> valuedouble);
-        int offset = (int)(Offset -> valuedouble);
         int length = (int)(Length -> valuedouble);
         uint8_t raw_data[10];
         int raw_data_len = base64_decode(Value -> valuestring, length, raw_data);
-        int status = plc_tag_set_raw_bytes(tags[index], offset, raw_data, raw_data_len);
+        int status = plc_tag_set_raw_bytes(tags[index], 0, raw_data, raw_data_len);
         if (status >= 0) {
             plc_tag_write(tags[index], 0);
         }
