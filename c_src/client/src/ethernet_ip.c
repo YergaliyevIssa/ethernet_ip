@@ -113,7 +113,7 @@ cJSON* ethernet_ip_destroy_tags(cJSON* args, char **error) {
     }
     // int status = plc_tag_destroy((int32_t)(request -> valuedouble));
     // if (status < 0) {
-    //     return on_error("Cannot destroy tag");   
+    //     return on_error("Cannot destroy tag");
     // }
     return cJSON_CreateString("ok");
 }
@@ -148,19 +148,23 @@ cJSON* ethernet_ip_read(cJSON* args, char **error) {
     cJSON* response = cJSON_CreateArray();
 
     cJSON_ArrayForEach(tag_info, args) {
-        cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length");
-        int length = (int)(Length -> valuedouble);
-        uint8_t buffer[10];
-        int status = plc_tag_get_raw_bytes(tags[index], 0, buffer, length);
         cJSON* read_result = cJSON_CreateObject();
-        if (status >= 0) {
-            buffer[length] = '\0';
-            char encoded_buffer[15];
-            base64_encode(buffer, length, encoded_buffer);
-            cJSON_AddStringToObject(read_result, "value", encoded_buffer);
+        if (tags[index] >= 0) {
+            cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length");
+            int length = (int)(Length -> valuedouble);
+            uint8_t buffer[10];
+            int status = plc_tag_get_raw_bytes(tags[index], 0, buffer, length);
+            if (status >= 0) {
+                buffer[length] = '\0';
+                char encoded_buffer[15];
+                base64_encode(buffer, length, encoded_buffer);
+                cJSON_AddStringToObject(read_result, "value", encoded_buffer);
+            } else {
+                cJSON_AddStringToObject(read_result, "error", plc_tag_decode_error(status));
+                LOGTRACE("error while reading %s", plc_tag_decode_error(status));
+            }
         } else {
-            cJSON_AddStringToObject(read_result, "error", plc_tag_decode_error(status));
-            LOGTRACE("error while reading %s", plc_tag_decode_error(status));
+            cJSON_AddStringToObject(read_result, "error", plc_tag_decode_error(tags[index]));
         }
         cJSON_AddItemToArray(response, read_result);
         index += 1;
@@ -178,8 +182,8 @@ cJSON* ethernet_ip_write(cJSON* args, char **error) {
 
     int size = cJSON_GetArraySize(args);
     int32_t *tags = (int32_t*)malloc(sizeof(int32_t) * size);
+    int* write_status = (int*)malloc(sizeof(int) * size);
     int index = 0;
-
 
     cJSON *tag_info = NULL;
     cJSON_ArrayForEach(tag_info, args) {
@@ -193,12 +197,32 @@ cJSON* ethernet_ip_write(cJSON* args, char **error) {
         int status = plc_tag_set_raw_bytes(tags[index], 0, raw_data, raw_data_len);
         if (status >= 0) {
             plc_tag_write(tags[index], 0);
+            write_status[index] = 1;
+        } else {
+            write_status[index] = status;
         }
         index += 1;
     }
+
     check_status(tags, size);
+
+    cJSON* response = cJSON_CreateArray();
+    for (index = 0; index < size; index++) {
+        cJSON* write_result = NULL;
+        if (tags[index] < 0) {
+            write_status[index] = tags[index];
+        }
+        if (write_status[index] < 0) {
+            write_result = cJSON_CreateString(plc_tag_decode_error(write_status[index]));
+        } else {
+            write_result = cJSON_CreateString("ok");
+        }
+        cJSON_AddItemToArray(response, write_result);
+    }
+
     free(tags);
-    return cJSON_CreateString("ok");
+    free(write_status);
+    return response;
 }
 
 cJSON* ethernet_ip_browse_tags(cJSON* request, char **error) {
@@ -227,6 +251,8 @@ void check_status(int32_t* tags, int size) {
             status = plc_tag_status(tags[i]);
             if (status == PLCTAG_STATUS_PENDING) {
                 done = 0;
+            } else if (status < 0) {
+                tags[i] = status;
             }
         }
         if (!done) {
