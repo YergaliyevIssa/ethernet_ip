@@ -100,7 +100,12 @@ read(PID, Params) ->
 read(PID, TagList, Timeout) when is_list(TagList)->
   case eport_c:request(PID, <<"read">>, TagList, Timeout) of
     {ok, Result} ->
-      {ok, [base64:decode(R) || R <- Result]};
+      Result1 =
+        [case R of
+           #{<<"value">> := Value} -> #{<<"value">> => base64:decode(Value)};
+           _Other -> _Other
+         end || R <- Result],
+      {ok, Result1};
     Other -> Other
   end;
 read(_PID, WrongParams, _Timeout) ->
