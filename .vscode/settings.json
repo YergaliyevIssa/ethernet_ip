@@ -17,6 +17,9 @@
         "time.h": "c",
         "eport_c.h": "c",
         "eport_c_log.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "platform.h": "c",
+        "attr.h": "c",
+        "debug.h": "c"
     }
 }

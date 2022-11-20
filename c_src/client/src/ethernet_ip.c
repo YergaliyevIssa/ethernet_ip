@@ -31,8 +31,13 @@ cJSON* ethernet_ip_create_tags(cJSON *request, char **error);
 cJSON* ethernet_ip_destroy_tags(cJSON *request, char **error);
 cJSON* ethernet_ip_browse_tags(cJSON *request, char **error);
 cJSON* on_request(char *method, cJSON *args, char **error);
-void check_status(int32_t* tags, int size); 
 
+
+cJSON* read_from_tag(int32_t tag_id, char *tag_type);
+int write_to_tag(int32_t tag_id, char *tag_type, cJSON* Value);
+
+void check_status(int32_t* tags, int size); 
+char* decode_error(int status_code);
 
 // Source discovery helpers
 typedef struct tag_entry_s {
@@ -130,8 +135,7 @@ cJSON* ethernet_ip_read(cJSON* args, char **error) {
     int index = 0;
 
     cJSON_ArrayForEach(tag_info, args) {
-        cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id");
-          
+        cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id"); 
         tags[index] = (int32_t)(TagId -> valuedouble);
         plc_tag_read(tags[index], 0);
         index += 1;
@@ -148,24 +152,8 @@ cJSON* ethernet_ip_read(cJSON* args, char **error) {
     cJSON* response = cJSON_CreateArray();
 
     cJSON_ArrayForEach(tag_info, args) {
-        cJSON* read_result = cJSON_CreateObject();
-        if (tags[index] >= 0) {
-            cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length");
-            int length = (int)(Length -> valuedouble);
-            uint8_t buffer[10];
-            int status = plc_tag_get_raw_bytes(tags[index], 0, buffer, length);
-            if (status >= 0) {
-                buffer[length] = '\0';
-                char encoded_buffer[15];
-                base64_encode(buffer, length, encoded_buffer);
-                cJSON_AddStringToObject(read_result, "value", encoded_buffer);
-            } else {
-                cJSON_AddStringToObject(read_result, "error", plc_tag_decode_error(status));
-                LOGTRACE("error while reading %s", plc_tag_decode_error(status));
-            }
-        } else {
-            cJSON_AddStringToObject(read_result, "error", plc_tag_decode_error(tags[index]));
-        }
+        cJSON *Type = cJSON_GetObjectItemCaseSensitive(tag_info, "type");
+        cJSON *read_result = read_from_tag(tags[index], Type -> valuestring);
         cJSON_AddItemToArray(response, read_result);
         index += 1;
     }
@@ -188,19 +176,10 @@ cJSON* ethernet_ip_write(cJSON* args, char **error) {
     cJSON *tag_info = NULL;
     cJSON_ArrayForEach(tag_info, args) {
         cJSON* TagId = cJSON_GetObjectItemCaseSensitive(tag_info, "tag_id");
-        cJSON* Length = cJSON_GetObjectItemCaseSensitive(tag_info, "length");
         cJSON* Value = cJSON_GetObjectItemCaseSensitive(tag_info, "value");
+        cJSON* Type = cJSON_GetObjectItemCaseSensitive(tag_info, "type");
         tags[index] = (int32_t)(TagId -> valuedouble);
-        int length = (int)(Length -> valuedouble);
-        uint8_t raw_data[10];
-        int raw_data_len = base64_decode(Value -> valuestring, length, raw_data);
-        int status = plc_tag_set_raw_bytes(tags[index], 0, raw_data, raw_data_len);
-        if (status >= 0) {
-            plc_tag_write(tags[index], 0);
-            write_status[index] = 1;
-        } else {
-            write_status[index] = status;
-        }
+        write_status[index] = write_to_tag(tags[index], Type -> valuestring, Value);
         index += 1;
     }
 
@@ -213,7 +192,7 @@ cJSON* ethernet_ip_write(cJSON* args, char **error) {
             write_status[index] = tags[index];
         }
         if (write_status[index] < 0) {
-            write_result = cJSON_CreateString(plc_tag_decode_error(write_status[index]));
+            write_result = cJSON_CreateString(decode_error(write_status[index]));
         } else {
             write_result = cJSON_CreateString("ok");
         }
@@ -262,6 +241,111 @@ void check_status(int32_t* tags, int size) {
     }
     return;
 }
+
+cJSON* read_from_tag(int32_t tag_id, char *tag_type) {
+    cJSON *result = cJSON_CreateObject();
+    if (tag_id < 0) {
+        cJSON_AddStringToObject(result, "error", decode_error(tag_id));
+        return result;
+    }
+    if (strcmp(tag_type, "SINT") == 0) {
+        int8_t value = plc_tag_get_int8(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "USINT") == 0) {
+        uint8_t value = plc_tag_get_uint8(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "INT") == 0) {
+        int16_t value = plc_tag_get_int16(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "UINT") == 0) {
+        uint16_t value = plc_tag_get_uint16(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "DINT") == 0) {
+        int32_t value = plc_tag_get_int32(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "UDINT") == 0) {
+        uint32_t value = plc_tag_get_uint32(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "LINT") == 0) {
+        int64_t value = plc_tag_get_int64(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "ULINT") == 0) {
+        uint64_t value = plc_tag_get_uint64(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "REAL") == 0) {
+        float value = plc_tag_get_float32(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "LREAL") == 0) {
+        double value = plc_tag_get_float64(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
+    } else {
+        cJSON_AddStringToObject(result, "error", "type not supported");
+    }
+
+    return result;
+
+}
+
+int write_to_tag(int32_t tag_id, char *tag_type, cJSON* Value) {
+    int result = 0;
+    if (tag_id < 0) {
+        return tag_id;
+    }
+    if (strcmp(tag_type, "SINT") == 0) {
+        int8_t val = (int8_t)Value -> valuedouble;
+        result = plc_tag_set_int8(tag_id, 0, val);
+    } else if (strcmp(tag_type, "USINT") == 0) {
+        uint8_t val = (uint8_t)Value -> valuedouble;
+        result = plc_tag_set_uint8(tag_id, 0, val);
+        
+    } else if (strcmp(tag_type, "INT") == 0) {
+        int16_t val = (int16_t)Value -> valuedouble;
+        result = plc_tag_set_int16(tag_id, 0, val);
+       
+    } else if (strcmp(tag_type, "UINT") == 0) {
+        uint16_t val = (uint16_t)Value -> valuedouble;
+        result = plc_tag_set_uint16(tag_id, 0, val);
+       
+    } else if (strcmp(tag_type, "DINT") == 0) {
+        int32_t val = (int32_t)Value -> valuedouble;
+        result = plc_tag_set_int32(tag_id, 0, val);
+        
+    } else if (strcmp(tag_type, "UDINT") == 0) {
+        uint32_t val = (uint32_t)Value -> valuedouble;
+        result = plc_tag_set_uint32(tag_id, 0, val);
+        
+    } else if (strcmp(tag_type, "LINT") == 0) {
+        int64_t val = (int64_t)Value -> valuedouble;
+        result = plc_tag_set_int64(tag_id, 0, val);
+        
+    } else if (strcmp(tag_type, "ULINT") == 0) {
+        uint64_t val = (uint64_t)Value -> valuedouble;
+        result = plc_tag_set_uint64(tag_id, 0, val);
+        
+    } else if (strcmp(tag_type, "REAL") == 0) {
+        float val = (float)Value -> valuedouble;
+        result = plc_tag_set_float32(tag_id, 0, val);
+        
+    } else if (strcmp(tag_type, "LREAL") == 0) {
+        double val  = (double)Value -> valuedouble;
+        result = plc_tag_set_float64(tag_id, 0, val);
+        
+    } else {
+        // magic ()
+       result = -100;
+    }
+
+    return result;
+
+}
+
+char* decode_error(int status_code) {
+    if (status_code == -100) {
+        return "Type is not supported";
+    }
+    return plc_tag_decode_error(status_code);
+}
+
 
 int main(int argc, char* argv[]) {
 
