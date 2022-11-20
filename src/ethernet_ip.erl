@@ -144,9 +144,9 @@ write(_Id, _TagNameList, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
 
-browse_tags(PID, Params) ->
-  browse_tags(PID, Params, ?RESPONSE_TIMEOUT).
-browse_tags(PID, #{<<"gateway">>:=_IP, <<"path">>:=_Path,<<"plc">>:=_PLC}=Params, Timeout) ->
+browse_tags({PID, Ref}, Params) ->
+  browse_tags({PID, Ref}, Params, ?RESPONSE_TIMEOUT).
+browse_tags({PID, _Ref}, #{<<"gateway">>:=_IP, <<"path">>:=_Path,<<"plc">>:=_PLC}=Params, Timeout) ->
   Params1 = Params#{<<"protocol">> => <<"ab_eip">>},
   ConnectionStr =
     maps:fold(
