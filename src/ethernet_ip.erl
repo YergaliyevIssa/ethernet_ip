@@ -92,18 +92,23 @@ set_log_level(PID, Level)->
 create_tags(PID, TagNames, Params) ->
   create_tags(PID, TagNames, Params, ?RESPONSE_TIMEOUT).
 create_tags(PID, TagNames, #{<<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC} = Params, Timeout) ->
-  Params1 = Params#{<<"protocol">> => <<"ab_eip">>},
-  ConnectionStr =
-    maps:fold(
-      fun(Key, Value, ConnStr) ->
+  if
+    length(TagNames) > 0 ->
+      Params1 = Params#{<<"protocol">> => <<"ab_eip">>},
+      ConnectionStr =
+        maps:fold(
+          fun(Key, Value, ConnStr) ->
             KeyValue = <<Key/binary, "=", Value/binary>>,
             case ConnStr of
               <<>> -> KeyValue;
               ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
             end
-      end, <<>>, Params1),
-  ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,
-  eport_c:request(PID, <<"create">>,#{<<"tag_names">> => TagNames, <<"tag_string">> => ConnectionStrBase}, Timeout);
+          end, <<>>, Params1),
+      ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,
+      eport_c:request(PID, <<"create">>,#{<<"tag_names">> => TagNames, <<"tag_string">> => ConnectionStrBase}, Timeout);
+    true ->
+      {ok, []}
+  end;
 create_tags(_PID, _TagNames, WrongParams, _Timeout) ->
   ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
   {error, {wrong_params, WrongParams}}.
@@ -191,7 +196,7 @@ get_ids({PID, TagStorageRef}, TagNameLists, Params) ->
 
   BeforeCreatedTagsMap = maps:get(<<"created">>, Created_NotCreatedTagsInfo),
   AllTags = maps:merge(BeforeCreatedTagsMap, NowCreatedTagsMap),
-  [maps:get(TagName, AllTags) || TagName <- TagNameLists].
+  {ok, [maps:get(TagName, AllTags) || TagName <- TagNameLists]}.
 
 %%parse_type(<<"BOOL">>, BitPos, Value) ->
 %%  <<V:8>> = Value, (V bsr BitPos) band 1;
