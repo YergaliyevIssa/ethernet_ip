@@ -180,6 +180,7 @@ cJSON* ethernet_ip_write(cJSON* args, char **error) {
         cJSON* Type = cJSON_GetObjectItemCaseSensitive(tag_info, "type");
         tags[index] = (int32_t)(TagId -> valuedouble);
         write_status[index] = write_to_tag(tags[index], Type -> valuestring, Value);
+        plc_tag_write(tags[index], 0);
         index += 1;
     }
 
