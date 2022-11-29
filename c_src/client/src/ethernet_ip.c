@@ -279,6 +279,9 @@ cJSON* read_from_tag(int32_t tag_id, char *tag_type) {
     } else if (strcmp(tag_type, "LREAL") == 0) {
         double value = plc_tag_get_float64(tag_id, 0);
         cJSON_AddNumberToObject(result, "value", value);
+    } else if (strcmp(tag_type, "BOOL") == 0) {
+        int value = plc_tag_get_bit(tag_id, 0);
+        cJSON_AddNumberToObject(result, "value", value);
     } else {
         cJSON_AddStringToObject(result, "error", "type not supported");
     }
@@ -330,10 +333,12 @@ int write_to_tag(int32_t tag_id, char *tag_type, cJSON* Value) {
     } else if (strcmp(tag_type, "LREAL") == 0) {
         double val  = (double)Value -> valuedouble;
         result = plc_tag_set_float64(tag_id, 0, val);
-        
+    } else if (strcmp(tag_type, "BOOL") == 0) {
+        int val = (int)Value -> valuedouble;
+        result = plc_tag_set_bit(tag_id, 0, val);
     } else {
-        // magic ()
-       result = -100;
+        // magic (custom error: Type is not supported)
+       result = WRONG_TYPE_ERR;
     }
 
     return result;
@@ -341,7 +346,7 @@ int write_to_tag(int32_t tag_id, char *tag_type, cJSON* Value) {
 }
 
 char* decode_error(int status_code) {
-    if (status_code == -100) {
+    if (status_code == WRONG_TYPE_ERR) {
         return "Type is not supported";
     }
     return plc_tag_decode_error(status_code);

@@ -21,13 +21,7 @@
 // Timeout for reading and writing operations
 #define TIMEOUT 5000
 
-// debug print
-//#define DEBUG_PRINT 1
-// #ifdef DEBUG_PRINT
-// #define LOGDEBUG(...) do{ fprintf(stdout,__VA_ARGS__); } while(0)
-// #else
-// #define LOGDEBUG(...) do{  } while(0)
-// #endif
+#define WRONG_TYPE_ERR -100
 
 // Build response
 // source discovery
