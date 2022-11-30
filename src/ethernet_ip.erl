@@ -42,21 +42,8 @@
 -define(CONNECT_TIMEOUT,30000).
 -define(RESPONSE_TIMEOUT,5000).
 
-
 -define(HEADER_LENGTH,4).
 
--define(TAG_STORAGE,'@ethernet_ip_tag_storage@').
-
-%% How many bits takes each data type
--define(type2bit, #{
-  <<"BOOL">> => 1,
-  <<"SINT">> => 8, <<"USINT">> => 8,
-  <<"INT">> => 16, <<"UINT">> => 16,
-  <<"DINT">> => 32, <<"UDINT">> => 32,
-  <<"LINT">> => 64, <<"ULINT">> => 64,
-  <<"REAL">> => 32, <<"LREAL">> => 64
-}).
--define(GET_BIT_SIZE(Type), maps:get(Type, ?type2bit)).
 %%==============================================================================
 %%	Control API
 %%==============================================================================
@@ -72,7 +59,7 @@ start_link(Name, Options) ->
   SourcePath = unicode:characters_to_binary(Dir ++ "/" ++ Source),
   case eport_c:start_link(SourcePath, Name, Options) of
     {ok, PID} ->
-      Ref = ets:new(?TAG_STORAGE, [set, public]),
+      Ref = ets:new(?MODULE, [set, public]),
       {ok, {PID, Ref}};
     {error, Error} -> {error, Error}
   end.
@@ -86,186 +73,81 @@ stop({PID, Ref}) ->
 
 set_log_level(PID, Level)->
   eport_c:set_log_level(PID, Level).
+
 %%==============================================================================
 %%	Protocol API
 %%==============================================================================
-create_tags(PID, TagNames, Params) ->
-  create_tags(PID, TagNames, Params, ?RESPONSE_TIMEOUT).
-create_tags(PID, TagNames, #{<<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC} = Params, Timeout) ->
+create_tags(Ref, TagNames, Params) ->
+  create_tags(Ref, TagNames, Params, ?RESPONSE_TIMEOUT).
+create_tags({PID, EtsRef}, TagNames, #{<<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC} = Params, Timeout) ->
   if
     length(TagNames) > 0 ->
-      Params1 = Params#{<<"protocol">> => <<"ab_eip">>},
-      ConnectionStr =
-        maps:fold(
-          fun(Key, Value, ConnStr) ->
-            KeyValue = <<Key/binary, "=", Value/binary>>,
-            case ConnStr of
-              <<>> -> KeyValue;
-              ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
-            end
-          end, <<>>, Params1),
-      ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,
-      eport_c:request(PID, <<"create">>,#{<<"tag_names">> => TagNames, <<"tag_string">> => ConnectionStrBase}, Timeout);
+      ConnectionStr = connection_prefix( Params#{ <<"protocol">> => <<"ab_eip">> }),
+      case eport_c:request(PID, <<"create">>,#{<<"tag_names">> => TagNames, <<"tag_string">> => ConnectionStr}, Timeout) of
+        {ok, TagIDs}->
+          ets:insert(EtsRef, lists:zip( TagNames, TagIDs )),
+          {ok, TagIDs};
+        Error->
+          Error
+      end;
     true ->
       {ok, []}
   end;
-create_tags(_PID, _TagNames, WrongParams, _Timeout) ->
-  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
-  {error, {wrong_params, WrongParams}}.
+create_tags(_Ref, _TagNames, InvalidParams, _Timeout) ->
+  ?LOGERROR("Params do not contain required param(s) ~p", [InvalidParams]),
+  {error, {invalid_params, InvalidParams}}.
 
 destroy_tags(PID, TagIDS) ->
   destroy_tags(PID, TagIDS, ?RESPONSE_TIMEOUT).
 destroy_tags(PID, TagIDS, Timeout) ->
   eport_c:request(PID, <<"destroy">>, TagIDS, Timeout).
 
-read({PID, Ref}, TagList, Params) ->
-  read({PID, Ref}, TagList, Params, ?RESPONSE_TIMEOUT).
-read({PID, Ref}, TagList, #{<<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC}=Params, Timeout)->
-  TagTypes = [TagType||{_TagName, TagType} <- TagList],
-  TagNameList = [TagName||{TagName, _TagType} <- TagList],
-  {ok, TagIDS} = get_ids({PID, Ref}, TagNameList, Params),
-  TagsInfo = [#{<<"tag_id">> => TagID, <<"type">> => TagType} || {TagID, TagType} <- lists:zip(TagIDS, TagTypes)],
-  case eport_c:request(PID, <<"read">>, TagsInfo, Timeout) of
+read(Ref, TagList, Params) ->
+  read(Ref, TagList, Params, ?RESPONSE_TIMEOUT).
+read({PID, _EtsRef} = Ref, TagList, #{<<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC} = Params, Timeout)->
+  TagIDs = names2ids(Ref, Params, [TagName||{TagName, _TagType} <- TagList] ),
+  Tags =
+    [ #{<<"tag_id">> => TagID, <<"type">> => TagType} || {TagID, TagType} <- lists:zip( TagIDs, [TagType||{_TagName, TagType} <- TagList] )],
+  case eport_c:request(PID, <<"read">>, Tags, Timeout) of
     {ok, Result} -> {ok, Result};
     Other -> Other
   end;
-read(_Id, _TagNameList, WrongParams, _Timeout) ->
-  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
-  {error, {wrong_params, WrongParams}}.
+read(_Id, _TagNameList, InvalidParams, _Timeout) ->
+  ?LOGERROR("Params do not contain required params ~p", [InvalidParams]),
+  {error, {invalid_params, InvalidParams}}.
 
-write({PID, Ref}, TagsList, Params) ->
-  write({PID, Ref}, TagsList, Params, ?RESPONSE_TIMEOUT).
-write({PID, Ref}, TagsList, #{<<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC}=Params, Timeout)->
-  TagNameList = [TagName || {TagName, _Type, _Value} <- TagsList],
-  {ok, TagIDS} = get_ids({PID, Ref}, TagNameList, Params),
+write(Ref, TagsList, Params) ->
+  write(Ref, TagsList, Params, ?RESPONSE_TIMEOUT).
+write({PID, _EtsRef} = Ref, TagsList, #{<<"gateway">>:=_IP, <<"path">>:=_Path, <<"plc">>:=_PLC}=Params, Timeout)->
+  TagIDs = names2ids(Ref, Params, [Name || {Name, _Type, _Value} <- TagsList] ),
   TagsInfo = [#{<<"tag_id">> => TagID, <<"type">> => Type, <<"value">> => Value}
-    || {TagID, {_TagName, Type, Value}} <- lists:zip(TagIDS, TagsList)],
-
+    || {TagID, {_TagName, Type, Value}} <- lists:zip(TagIDs, TagsList)],
   case eport_c:request(PID, <<"write">>, TagsInfo, Timeout) of
     {ok, Result} -> {ok, Result};
     Other -> Other
   end;
-write(_Id, _TagNameList, WrongParams, _Timeout) ->
-  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
-  {error, {wrong_params, WrongParams}}.
+write(_Id, _TagNameList, InvalidParams, _Timeout) ->
+  ?LOGERROR("Params do not contain required params ~p", [InvalidParams]),
+  {error, {invalid_params, InvalidParams}}.
 
 browse_tags({PID, Ref}, Params) ->
   browse_tags({PID, Ref}, Params, ?RESPONSE_TIMEOUT).
 browse_tags({PID, _Ref}, #{<<"gateway">>:=_IP, <<"path">>:=_Path,<<"plc">>:=_PLC}=Params, Timeout) ->
-  Params1 = Params#{<<"protocol">> => <<"ab_eip">>},
-  ConnectionStr =
-    maps:fold(
-      fun(Key, Value, ConnStr) ->
-        KeyValue = <<Key/binary, "=", Value/binary>>,
-        case ConnStr of
-          <<>> -> KeyValue;
-          ConnStr -> <<ConnStr/binary, "&", KeyValue/binary>>
-        end
-      end, <<>>, Params1),
-  ConnectionStrBase = <<ConnectionStr/binary, "&name=">>,
-  eport_c:request(PID, <<"browse_tags">>,ConnectionStrBase, Timeout);
-browse_tags(_PID, WrongParams, _Timeout) ->
-  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [WrongParams]),
-  {error, {wrong_params, WrongParams}}.
+  ConnectionStr = connection_prefix(Params#{ <<"protocol">> => <<"ab_eip">> }),
+  eport_c:request(PID, <<"browse_tags">>, ConnectionStr, Timeout);
+browse_tags(_PID, InvalidParams, _Timeout) ->
+  ?LOGERROR("Params do not contain requiered parametr(s) ~p", [InvalidParams]),
+  {error, {invalid_params, InvalidParams}}.
 
 %%=====================================================================
 %% Internal helpers
 %%=====================================================================
-get_ids({PID, TagStorageRef}, TagNameLists, Params) ->
-  Created_NotCreatedTagsInfo =
-    lists:foldl(
-      fun(TagName, #{<<"created">> := Created, <<"not_created">> := NotCreated}=Acc) ->
-        case ets:lookup(TagStorageRef, TagName) of
-          [{TagName, TagID}] ->
-            Created1 = Created#{TagName => TagID},
-            Acc#{<<"created">> => Created1};
-          [] ->
-            NotCreated1 = [TagName | NotCreated],
-            Acc#{<<"not_created">> => NotCreated1}
-        end
-      end, #{<<"created">> => #{}, <<"not_created">> => []}, TagNameLists),
+connection_prefix( Params )->
+  Params1 =
+    [ unicode:characters_to_list( K ) ++ "=" ++ unicode:characters_to_list( V ) || {K, V} <- maps:to_list( Params ) ],
+  unicode:characters_to_binary( string:join( Params1 ++ ["name="], "&" )).
 
-  NotCreatedTags = maps:get(<<"not_created">>, Created_NotCreatedTagsInfo),
-  {ok, TagIDs} = create_tags(PID, NotCreatedTags, Params),
-
-  NowCreatedTagsInfo = lists:zip(NotCreatedTags, TagIDs),
-
-  ets:insert(TagStorageRef, NowCreatedTagsInfo),
-
-  NowCreatedTagsMap = maps:from_list(NowCreatedTagsInfo),
-
-  BeforeCreatedTagsMap = maps:get(<<"created">>, Created_NotCreatedTagsInfo),
-  AllTags = maps:merge(BeforeCreatedTagsMap, NowCreatedTagsMap),
-  {ok, [maps:get(TagName, AllTags) || TagName <- TagNameLists]}.
-
-%%parse_type(<<"BOOL">>, BitPos, Value) ->
-%%  <<V:8>> = Value, (V bsr BitPos) band 1;
-%%parse_type(Type, Size, Value) when Type == <<"SINT">>; Type == <<"INT">>; Type == <<"DINT">>; Type == <<"LINT">>->
-%%  <<V:Size/little-signed-integer>> = Value,
-%%  V;
-%%parse_type(Type, Size, Value) when Type == <<"USINT">>; Type == <<"UINT">>; Type == <<"UDINT">>; Type == <<"ULINT">> ->
-%%  <<V:Size/little-unsigned-integer>> = Value,
-%%  V;
-%%parse_type(Type, Size, Value) when Type == <<"REAL">>; Type == <<"LREAL">>->
-%%  <<V:Size/little-float>> = Value,
-%%  V;
-%%parse_type(_Type, Size, Value) ->
-%%  <<V:Size>> = Value,
-%%  V.
-%%
-%%
-%%pipe(Pipe,Acc)->
-%%  pipe(Pipe,Acc,1).
-%%pipe([H|T],Acc,Step)->
-%%  case try H(Acc) catch _:E:Stack->{error,{programming_error,E,Stack}} end of
-%%    {ok,Acc1}->pipe(T,Acc1,Step+1);
-%%    ok->pipe(T,Acc,Step+1);
-%%    error->{error,Step,undefined};
-%%    {error,Error}->{error,Step,Error};
-%%    Acc1->pipe(T,Acc1,Step+1)
-%%  end;
-%%pipe([],Acc,_Step)->
-%%  {ok,Acc}.
-%%
-%%
-%%%---------------Coerce the value to the number---------------------------------
-%%value2number(Value) when is_number(Value)->
-%%  {ok,Value};
-%%value2number(<<"true">>)->
-%%  {ok,1};
-%%value2number(<<"false">>)->
-%%  {ok,0};
-%%value2number(true)->
-%%  {ok,1};
-%%value2number(false)->
-%%  {ok,0};
-%%value2number(Value) when is_binary(Value)->
-%%  try
-%%    Int=binary_to_integer(Value),
-%%    {ok,Int}
-%%  catch
-%%    _:_->
-%%      try
-%%        Float=binary_to_float(Value),
-%%        {ok,Float}
-%%      catch
-%%        _:_->
-%%          Size=size(Value),
-%%          <<Value1:Size/binary>> = Value,
-%%          {ok,Value1}
-%%      end
-%%  end.
-%%
-%%%-------------Coerce the number to binary-------------------------------
-%%
-%%value2bin(<<"BOOL">>, Value)->
-%%  {ok,<<(round(Value)):8>>};
-%%value2bin(Type, Value) when  Type == <<"USINT">>; Type == <<"UINT">>; Type == <<"UDINT">>; Type == <<"ULINT">> ->
-%%  Size = ?GET_BIT_SIZE(Type),
-%%  {ok,<<(round(Value)):Size/little-unsigned-integer>>};
-%%value2bin(Type, Value) when  Type == <<"SINT">>; Type == <<"INT">>; Type == <<"DINT">>; Type == <<"LINT">> ->
-%%  Size = ?GET_BIT_SIZE(Type),
-%%  {ok,<<(round(Value)):Size/little-signed-integer>>};
-%%value2bin(Type, Value) when  Type == <<"REAL">>; Type == <<"LREAL">> ->
-%%  Size = ?GET_BIT_SIZE(Type),
-%%  {ok,<<(0.0 + Value):Size/little-float>>}.
+names2ids({PID, EtsRef}, Params, Names)->
+  ToCreate = [ N || N <- Names, ets:lookup(EtsRef, N) =:= []],
+  create_tags(PID, ToCreate, Params),
+  [ element(2,hd( ets:lookup( EtsRef, N) )) || N <- Names].
