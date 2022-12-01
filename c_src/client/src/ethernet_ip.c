@@ -37,7 +37,7 @@ cJSON* read_from_tag(int32_t tag_id, char *tag_type);
 int write_to_tag(int32_t tag_id, char *tag_type, cJSON* Value);
 
 void check_status(int32_t* tags, int size); 
-char* decode_error(int status_code);
+const char* decode_error(int status_code);
 
 // Source discovery helpers
 typedef struct tag_entry_s {
@@ -345,7 +345,7 @@ int write_to_tag(int32_t tag_id, char *tag_type, cJSON* Value) {
 
 }
 
-char* decode_error(int status_code) {
+const char* decode_error(int status_code) {
     if (status_code == WRONG_TYPE_ERR) {
         return "Type is not supported";
     }

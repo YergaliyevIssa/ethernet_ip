@@ -26,4 +26,4 @@
 // Build response
 // source discovery
 // we get all necessary information about all tags in AB PLC
-cJSON* browse_tags(const char* tag_string_base, int* status);
+cJSON* browse_tags(char* tag_string_base, int* status);

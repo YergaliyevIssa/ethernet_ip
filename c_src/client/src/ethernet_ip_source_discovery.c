@@ -78,8 +78,8 @@ struct udt_entry_s {
 
 
 
-static void usage(void);
-static char *setup_tag_string(int argc, char **argv);
+// static void usage(void);
+// static char *setup_tag_string(int argc, char **argv);
 static int open_tag(char *base, char *tag_name);
 static int get_tag_list(int32_t tag_id, struct tag_entry_s **tag_list, struct tag_entry_s *parent);
 static char* get_element_type(uint16_t element_type);
@@ -97,11 +97,11 @@ static int current_udt = 0;
 static int debug_level = PLCTAG_DEBUG_NONE;
 
 
-cJSON* browse_tags(const char* tag_string_base, int* status)
+cJSON* browse_tags(char* tag_string_base, int* status)
 {
     int rc = PLCTAG_STATUS_OK;
-    char *host = NULL;
-    char *path = NULL;
+    // char *host = NULL;
+    // char *path = NULL;
     int32_t controller_listing_tag = 0;
     int32_t program_listing_tag = 0;
     struct tag_entry_s *tag_list = NULL;
@@ -480,7 +480,7 @@ int process_tag_entry(int32_t tag, int *offset, uint16_t *last_tag_id, struct ta
 
     rc = plc_tag_get_string(tag, *offset, tag_name, tag_name_len + 1);
     if(rc != PLCTAG_STATUS_OK) {
-        LOGDEBUG(stdout, "Unable to get tag name string, error %s!\n", plc_tag_decode_error(rc));
+        LOGDEBUG("Unable to get tag name string, error %s!\n", plc_tag_decode_error(rc));
         free(tag_name);
         return rc;
     }
@@ -533,7 +533,7 @@ char* get_element_type(uint16_t element_type)
         return udts[(size_t)(unsigned int)(element_type & TYPE_UDT_ID_MASK)]->name;
     } else {
         uint16_t atomic_type = element_type & 0xFF; /* MAGIC */
-        const char *type = NULL;
+        char *type = NULL;
 
         switch(atomic_type) {
             case 0xC1: type = "BOOL"; break;
@@ -558,34 +558,34 @@ char* get_element_type(uint16_t element_type)
 }
 
 
-int encode_request_prefix(const char *name, uint8_t *buffer, int *encoded_size)
-{
-    int symbol_length_index = 0;
-    /* start with the symbolic type identifier */
-    *encoded_size = 0;
-    buffer[*encoded_size] = (uint8_t)(unsigned int)0x91; (*encoded_size)++;
+// int encode_request_prefix(const char *name, uint8_t *buffer, int *encoded_size)
+// {
+//     int symbol_length_index = 0;
+//     /* start with the symbolic type identifier */
+//     *encoded_size = 0;
+//     buffer[*encoded_size] = (uint8_t)(unsigned int)0x91; (*encoded_size)++;
 
-    /* dummy value for the encoded length */
-    symbol_length_index = *encoded_size;
-    buffer[*encoded_size] = (uint8_t)(unsigned int)0; (*encoded_size)++;
+//     /* dummy value for the encoded length */
+//     symbol_length_index = *encoded_size;
+//     buffer[*encoded_size] = (uint8_t)(unsigned int)0; (*encoded_size)++;
 
-    /* copy the string. */
-    for(int index=0; index < (int)(unsigned int)strlen(name); index++) {
-        buffer[*encoded_size] = (uint8_t)name[index];
-        (*encoded_size)++;
-    }
+//     /* copy the string. */
+//     for(int index=0; index < (int)(unsigned int)strlen(name); index++) {
+//         buffer[*encoded_size] = (uint8_t)name[index];
+//         (*encoded_size)++;
+//     }
 
-    /* backfill the encoded size */
-    buffer[symbol_length_index] = (uint8_t)(unsigned int)(strlen(name));
+//     /* backfill the encoded size */
+//     buffer[symbol_length_index] = (uint8_t)(unsigned int)(strlen(name));
 
-    /* make sure we have an even number of bytes. */
-    if((*encoded_size) & 0x01) {
-        buffer[*encoded_size] = 0;
-        (*encoded_size)++;
-    }
+//     /* make sure we have an even number of bytes. */
+//     if((*encoded_size) & 0x01) {
+//         buffer[*encoded_size] = 0;
+//         (*encoded_size)++;
+//     }
 
-    return PLCTAG_STATUS_OK;
-}
+//     return PLCTAG_STATUS_OK;
+// }
 
 
 int get_udt_definition(char *tag_string_base, uint16_t udt_id)
