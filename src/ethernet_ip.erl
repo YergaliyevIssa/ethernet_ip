@@ -149,5 +149,5 @@ connection_prefix( Params )->
 
 names2ids({PID, EtsRef}, Params, Names)->
   ToCreate = [ N || N <- Names, ets:lookup(EtsRef, N) =:= []],
-  create_tags(PID, ToCreate, Params),
+  create_tags({PID, EtsRef}, ToCreate, Params),
   [ element(2,hd( ets:lookup( EtsRef, N) )) || N <- Names].
