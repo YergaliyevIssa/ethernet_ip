@@ -335,7 +335,12 @@ int write_to_tag(int32_t tag_id, char *tag_type, cJSON* Value) {
         result = plc_tag_set_float64(tag_id, 0, val);
     } else if (strcmp(tag_type, "BOOL") == 0) {
         int val = (int)Value -> valuedouble;
-        result = plc_tag_set_bit(tag_id, 0, val);
+        uint8_t buffer = 0;
+        if (val != 0) {  buffer = 1;  }
+
+        //dirty hack, but we need this,
+        // sometimes plc_tag_set_bit(...) does not work properly
+        result = plc_tag_set_raw_bytes(tag_id, 0, &buffer, 1);
     } else {
         // magic (custom error: Type is not supported)
        result = WRONG_TYPE_ERR;
